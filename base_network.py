@@ -21,7 +21,7 @@ tau = 20*msecond
 n_ext = 100
 p_ext = 0.5
 p_int = 0.05
-w_ext = 0.9*mvolt
+w_ext = 1.0*mvolt
 r_ext = 10*hertz
 w_int = 0.1*mvolt
 lif_eq = Equations("""
@@ -36,17 +36,23 @@ inp_group = PoissonGroup(n_ext, rates=r_ext)
 # external input only applied to a part of the network
 n_ext_rec = 100
 inp_conn = Connection(inp_group, lif_group[:n_ext_rec], weight=w_ext,
-                      sparseness=p_ext, fixed=True, delay=5*msecond)
+                      sparseness=1, fixed=True, delay=5*msecond)
 asympt_inp = n_ext*p_ext*w_ext*r_ext*tau
 voltage_range = Vth-Vrest
 if asympt_inp <= voltage_range:
-    print("Network spikes unlikely to occur.")
-    print("%f <= %f" % (asympt_inp, voltage_range))
+    print("Network spikes unlikely to occur: %f <= %f" % (
+        asympt_inp, voltage_range))
 #    print("Aborting!")
 #    sys.exit()
 lif_group.V = Vrest
-lif_conn = Connection(lif_group, lif_group, weight=w_int, sparseness=p_int,
-                      delay=5*msecond)
+lif_conn = Connection(lif_group, lif_group, 'V', delay=50*msecond)
+netw_size = len(lif_group)
+n_layers = 10
+for layer in range(1, n_layers):
+    prev_start = netw_size/n_layers*(layer-1)
+    cur_start = netw_size/n_layers*layer
+    cur_end = netw_size/n_layers*(layer+1)
+    lif_conn[prev_start:cur_start, cur_start:cur_end] = w_int
 
 print("Setting up monitors ...")
 trace_mon = StateMonitor(lif_group, "V", record=True)
@@ -73,7 +79,7 @@ subplot(313)
 plot(t, conv_spikes)
 axis(xmin=0, xmax=float(duration))
 scatter(t[np.argmax(conv_spikes)], max(conv_spikes), s=10)
-show(block=False)
+#show(block=False)
 print("Network synchrony peaked at t = %f s" % (t[np.argmax(conv_spikes)]))
 
 # let's run NPSS on all neurons and see what we get
@@ -114,7 +120,7 @@ axis(xmin=0, xmax=float(duration))
 subplot(212)
 plot(spike_mon[max_idx][1:], npss[max_idx], "-o")
 axis(xmin=0, xmax=float(duration))
-show()
+#show()
 
 
 #print("Calculating pairwise Kreuz metric ...")
