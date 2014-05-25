@@ -5,25 +5,27 @@ from brian.directcontrol import PoissonGroup
 from brian.monitor import StateMonitor, SpikeMonitor
 from brian.units import mvolt, msecond, second, hertz
 from brian import raster_plot, defaultclock
-from matplotlib.pyplot import plot, show, subplot, figure, scatter, axis, title
+from matplotlib.pyplot import (plot, show, subplot, figure, scatter, axis,
+                              title)
 import matplotlib.mlab as mlab
 import numpy as np
 import spikerlib as sl
 
+
 print("Preparing simulation ...")
 defaultclock.dt = dt = 0.1*msecond
-duration = 2*second
+duration = 0.2*second
 w = 2*msecond  # coincidence window for npss
 Vrest = -60*mvolt
 Vth = -50*mvolt
 tau = 20*msecond
 
-n_ext = 100
+n_ext = 1000
 p_ext = 0.5
 p_int = 0.05
-w_ext = 1.0*mvolt
+w_ext = 0.1*mvolt
 r_ext = 10*hertz
-w_int = 0.1*mvolt
+w_int = 0.09*mvolt
 lif_eq = Equations("""
 dV/dt = (Vrest-V)/tau : volt
 I : volt
@@ -36,7 +38,7 @@ inp_group = PoissonGroup(n_ext, rates=r_ext)
 # external input only applied to a part of the network
 n_ext_rec = 100
 inp_conn = Connection(inp_group, lif_group[:n_ext_rec], weight=w_ext,
-                      sparseness=1, fixed=True, delay=5*msecond)
+                      sparseness=p_ext, fixed=True, delay=5*msecond)
 asympt_inp = n_ext*p_ext*w_ext*r_ext*tau
 voltage_range = Vth-Vrest
 if asympt_inp <= voltage_range:
@@ -45,7 +47,7 @@ if asympt_inp <= voltage_range:
 #    print("Aborting!")
 #    sys.exit()
 lif_group.V = Vrest
-lif_conn = Connection(lif_group, lif_group, 'V', delay=50*msecond)
+lif_conn = Connection(lif_group, lif_group, 'V', delay=10*msecond)
 netw_size = len(lif_group)
 n_layers = 10
 for layer in range(1, n_layers):
@@ -72,9 +74,11 @@ figure("Spike trains")
 splt = subplot(311)
 title("External inputs")
 raster_plot(input_mon)
+axis(xmin=0, xmax=duration/msecond)
 subplot(312)
 title("Network spikes")
 raster_plot(spike_mon)
+axis(xmin=0, xmax=duration/msecond)
 subplot(313)
 plot(t, conv_spikes)
 axis(xmin=0, xmax=float(duration))
@@ -115,12 +119,10 @@ for src in source_nrns:
     y = np.zeros(len(spike_mon[src]))+inp_idx
     scatter(spike_mon[src], y, c="r")
     inp_idx += 1
-
 axis(xmin=0, xmax=float(duration))
 subplot(212)
 plot(spike_mon[max_idx][1:], npss[max_idx], "-o")
 axis(xmin=0, xmax=float(duration))
-#show()
 
 
 #print("Calculating pairwise Kreuz metric ...")
@@ -132,4 +134,5 @@ axis(xmin=0, xmax=float(duration))
 #plot(kr_t, kr_d)
 #axis(xmin=0, xmax=float(duration))
 
+show(block=False)
 print("All done!")
