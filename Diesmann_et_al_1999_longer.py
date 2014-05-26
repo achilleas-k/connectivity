@@ -224,12 +224,12 @@ def state_space(grid, neuron_multiply, verbose=True):
     axis([sigmamin / ms, sigmamax / ms, amin, amax])
 
 
-minimal_example()
-#print 'Computing SFC with multiple layers'
-#single_sfc()
-#print 'Plotting SFC state space'
-#state_space(3,1)
-#state_space(8,10)
-#state_space(10,50)
-#state_space(10,150)
-#show()
+#minimal_example()
+print 'Computing SFC with multiple layers'
+single_sfc()
+print 'Plotting SFC state space'
+state_space(3,1)
+state_space(8,10)
+state_space(10,50)
+state_space(10,150)
+show()
