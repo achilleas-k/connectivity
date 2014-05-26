@@ -40,8 +40,8 @@ inp_conn = Connection(inp_group, lif_group[:n_ext_rec], weight=w_ext,
 asympt_inp = n_ext*p_ext*w_ext*r_ext*tau
 voltage_range = Vth-Vrest
 if asympt_inp <= voltage_range:
-    print("Network spikes unlikely to occur.")
-    print("%f <= %f" % (asympt_inp, voltage_range))
+    print("NOTICE: Network spikes unlikely to occur.")
+    print("Mean input potential %f <= %f Relative threshold" % (asympt_inp, voltage_range))
 #    print("Aborting!")
 #    sys.exit()
 lif_group.V = Vrest
