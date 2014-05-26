@@ -12,6 +12,8 @@ import time
 from brian.library.IF import *
 from brian.library.synapses import *
 
+allmonitors = []
+
 def minimal_example():
     # Neuron model parameters
     Vr = -70 * mV
@@ -43,7 +45,10 @@ def minimal_example():
     # Record the spikes
     Mgp = [SpikeMonitor(p, record=True) for p in Pgp]
     Minput = SpikeMonitor(Pinput, record=True)
+    Mvoltage = StateMonitor(P, 'V', record=True)
     monitors = [Minput] + Mgp
+    global allmonitors
+    allmonitors = monitors+[Mvoltage]
     # Setup the network, and run it
     P.V = Vr + rand(len(P)) * (Vt - Vr)
     run(100 * ms)
