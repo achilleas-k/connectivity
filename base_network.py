@@ -24,10 +24,7 @@ p_int = 0.05
 w_ext = 0.9*mvolt
 r_ext = 10*hertz
 w_int = 0.1*mvolt
-lif_eq = Equations("""
-dV/dt = (Vrest-V)/tau : volt
-I : volt
-""")
+lif_eq = Equations("dV/dt = (Vrest-V)/tau : volt")
 lif_eq.prepare()
 lif_group = NeuronGroup(1000, lif_eq, threshold="V>Vth", reset=Vrest,
                        refractory=2*msecond)
@@ -80,7 +77,7 @@ print("Network synchrony peaked at t = %f s" % (t[np.argmax(conv_spikes)]))
 print("Calculating NPSS ...")
 npss = []
 max_idx = 0
-trace_mon.insert_spikes(spike_mon, Vth+30*mvolt)  # not really necessary, but I like it
+trace_mon.insert_spikes(spike_mon, Vth+30*mvolt)
 for v, sp in zip(trace_mon.values, spike_mon.spiketimes.itervalues()):
     if len(sp) < 2:
         npss.append([0])
