@@ -12,9 +12,9 @@ tau = 10*ms
 N_layers = 11
 N_per_layer = 100
 N_total = N_layers*N_per_layer
-N_in = 1000
+N_in = 10
 r_inp = 50*Hz
-w_in = 0.05*mV
+w_in = 0.3*mV
 
 network = Network()
 
@@ -60,8 +60,8 @@ for v, sp in zip(vmon.values, spikemon.spiketimes.itervalues()):
         npss.append(0)
 print("Calculating pairwise Kreuz metric ...")
 kreuz = []
+idx = 0
 for idx, monset in enumerate(inp_mons):
-    print("%i/%i" % (idx, N_total))
     smon, rmon = monset
     start = layer*N_per_layer
     end = (layer+1)*N_per_layer
@@ -72,6 +72,8 @@ for idx, monset in enumerate(inp_mons):
         allinputs.append(randtrain)
     outputspiketrains = spikemon.spiketimes.values()[start:end]
     for sp in outputspiketrains:
+        idx += 1
+        print("%i/%i" % (idx, N_total))
         t, krd = spikerlib.metrics.kreuz.interval(allinputs, sp)
         kreuz.append((t, krd))
 print("DONE!")
