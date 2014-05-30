@@ -10,11 +10,11 @@ Vth = -50*mV
 tau = 10*ms
 
 N_layers = 11
-N_per_layer = 100
+N_per_layer = 1
 N_total = N_layers*N_per_layer
 N_in = 10
 r_inp = 50*Hz
-w_in = 0.3*mV
+w_in = 2.2*mV
 
 network = Network()
 
@@ -26,12 +26,14 @@ lif_group.V = Vrest
 network.add(lif_group)
 inp_groups = []
 inp_mons = []
+randidx = range(N_layers)
+shuffle(randidx)
 for layer in range(N_layers):
     print("Constructing inputs for layer %i ..." % (layer))
     sync, rand = spikerlib.tools.gen_input_groups(N_in, r_inp, 0.1*layer,
                                                   0*ms, duration, dt)
-    start = layer*N_per_layer
-    end = (layer+1)*N_per_layer
+    start = randidx[layer]*N_per_layer
+    end = (randidx[layer]+1)*N_per_layer
     syncconn = Connection(source=sync, target=lif_group[start:end],
                             weight=w_in, sparseness=1.0)
     randconn = Connection(source=rand, target=lif_group[start:end],
@@ -54,14 +56,13 @@ print("Calculating NPSS ...")
 for v, sp in zip(vmon.values, spikemon.spiketimes.itervalues()):
     if len(sp)>2:
         slopes = spikerlib.tools.npss(v, sp, Vrest, Vth, tau, w, dt)
-        mslope = mean(slopes)
-        npss.append(mslope)
+        npss.append((sp[1:], slopes))
     else:
-        npss.append(0)
+        npss.append((0, 0))
 print("Calculating pairwise Kreuz metric ...")
 kreuz = []
 idx = 0
-for idx, monset in enumerate(inp_mons):
+for layer, monset in enumerate(inp_mons):
     smon, rmon = monset
     start = layer*N_per_layer
     end = (layer+1)*N_per_layer
@@ -75,5 +76,11 @@ for idx, monset in enumerate(inp_mons):
         idx += 1
         print("%i/%i" % (idx, N_total))
         t, krd = spikerlib.metrics.kreuz.interval(allinputs, sp)
+        t = [ti[0] if len(ti) == 1 else nan for ti in t]
+        if nan in t:
+            raise ValueError
+        krd = [krdi[0] if len(krdi) == 1 else nan for krdi in krd]
+        if nan in krd:
+            raise ValueError
         kreuz.append((t, krd))
 print("DONE!")
