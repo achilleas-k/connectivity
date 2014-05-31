@@ -51,7 +51,7 @@ def calc_kreuz(allinputs):
 
 
 defaultclock.dt = dt = 0.1*ms
-duration = 1*second
+duration = 2*second
 w = 2*ms
 Vrest = -70*mV
 Vth = -50*mV
@@ -102,7 +102,9 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 fig = plt.figure()
 ax = fig.add_subplot(111, projection="3d")
-ax.scatter(samples, trains, kreuz, c=kreuz)
+rgb = ["r", "g", "b"]
+colours = [rgb[i % 3] for i in range(len(kreuz))]
+ax.scatter(samples, trains, kreuz, c=colours)
 ax.set_xlabel("N samples")
 ax.set_ylabel("N trains")
 ax.set_zlabel("Spike distance")
