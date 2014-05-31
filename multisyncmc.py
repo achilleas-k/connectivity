@@ -17,23 +17,38 @@ def calc_npss(vmon, spikemon):
     return npss
 
 
-def calc_kreuz(inp_mons):
-    idx = 0
-    kreuz = []
-    for layer, monset in enumerate(inp_mons):
+def collect_input_spikes(inp_mons):
+    allinputs = []
+    for monset in inp_mons:
+        inputset = []
         smon, rmon = monset
-        allinputs = []
         for synctrain in smon.spiketimes.itervalues():
-            allinputs.append(synctrain)
+            inputset.append(synctrain)
         for randtrain in rmon.spiketimes.itervalues():
-            allinputs.append(randtrain)
-        idx += 1
-        print("%i/%i" % (idx, N_total))
-        t, krd = spikerlib.metrics.kreuz.pairwise_mp(allinputs, 0*second,
-                duration, 100)
-        kreuz.append((t, krd))
-        print(sum(krd)/(len(krd)-1))
-    return kreuz
+            inputset.append(randtrain)
+        allinputs.append(inputset)
+    return allinputs
+
+
+def calc_kreuz(allinputs):
+    kreuz = []
+    samples = []
+    trains = []
+    max_samples = 100
+    max_trains = len(allinputs[0])
+    for nsamples in range(10, max_samples):
+        for ntrains in range(10, max_trains):
+            for idx, inputset in enumerate(allinputs):
+                t, krd = spikerlib.metrics.kreuz.pairwise_mp(
+                        inputset[:ntrains], 0*second,
+                        duration, nsamples)
+                kreuz.append(mean(krd))
+                trains.append(ntrains)
+                samples.append(nsamples)
+                print("Samples: %i - Trains: %s - Spike distance: %f" % ( 
+                    nsamples, ntrains, mean(krd)))
+    return samples, trains, kreuz
+
 
 defaultclock.dt = dt = 0.1*ms
 duration = 1*second
@@ -81,5 +96,18 @@ print("Running simulation for %s" % duration)
 network.run(duration)
 #npss = calc_npss(vmon, spikemon)
 print("Calculating pairwise Kreuz metric ...")
-kreuz = calc_kreuz(inp_mons)
+allinputs = collect_input_spikes(inp_mons)
+samples, trains, kreuz = calc_kreuz(allinputs)
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+fig = plt.figure()
+ax = fig.add_subplot(111, projection="3d")
+ax.scatter(samples, trains, kreuz, c=kreuz)
+ax.set_xlabel("N samples")
+ax.set_ylabel("N trains")
+ax.set_zlabel("Spike distance")
+show()
 print("DONE!")
+
+
+
