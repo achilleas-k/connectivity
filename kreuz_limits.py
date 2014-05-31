@@ -1,5 +1,6 @@
 """
-Random sampling
+Test the behaviour and in particular, the maximum value of the Kreuz measure
+against spike train parameters.
 """
 from brian import *
 import spikerlib
