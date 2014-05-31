@@ -36,8 +36,8 @@ def calc_kreuz(allinputs):
     trains = []
     max_samples = 100
     max_trains = len(allinputs[0])
-    for nsamples in range(10, max_samples):
-        for ntrains in range(10, max_trains):
+    for nsamples in range(10, max_samples+1, 10):
+        for ntrains in range(10, max_trains+1, 5):
             for idx, inputset in enumerate(allinputs):
                 t, krd = spikerlib.metrics.kreuz.pairwise_mp(
                         inputset[:ntrains], 0*second,
