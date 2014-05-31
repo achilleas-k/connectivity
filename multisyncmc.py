@@ -5,6 +5,36 @@ from brian import *
 import spikerlib
 
 
+def calc_npss(vmon, spikemon):
+    npss = []
+    print("Calculating NPSS ...")
+    for v, sp in zip(vmon.values, spikemon.spiketimes.itervalues()):
+        if len(sp)>2:
+            slopes = spikerlib.tools.npss(v, sp, Vrest, Vth, tau, w, dt)
+            npss.append((sp[1:], slopes))
+        else:
+            npss.append((0, 0))
+    return npss
+
+
+def calc_kreuz(inp_mons):
+    idx = 0
+    kreuz = []
+    for layer, monset in enumerate(inp_mons):
+        smon, rmon = monset
+        allinputs = []
+        for synctrain in smon.spiketimes.itervalues():
+            allinputs.append(synctrain)
+        for randtrain in rmon.spiketimes.itervalues():
+            allinputs.append(randtrain)
+        idx += 1
+        print("%i/%i" % (idx, N_total))
+        t, krd = spikerlib.metrics.kreuz.pairwise_mp(allinputs, 0*second,
+                duration, 100)
+        kreuz.append((t, krd))
+        print(sum(krd)/(len(krd)-1))
+    return kreuz
+
 defaultclock.dt = dt = 0.1*ms
 duration = 1*second
 w = 2*ms
@@ -12,8 +42,8 @@ Vrest = -70*mV
 Vth = -50*mV
 tau = 10*ms
 
-N_total = 100
-N_in = 20
+N_total = 3
+N_in = 50
 r_inp = 50*Hz
 w_in = 1.01*mV
 
@@ -24,17 +54,17 @@ lif_eq.prepare()
 lif_group = NeuronGroup(N_total, lif_eq, threshold="V>Vth", reset=Vrest,
                         refractory=1*msecond)
 lif_group.V = Vrest
-network.add(lif_group)
+#network.add(lif_group)
 inp_groups = []
 inp_mons = []
 for nrn_i in range(N_total):
-    print("Constructing inputs for neuron %i ..." % (nrn_i))
-    Sin = rand()
+    Sin = 1.0*nrn_i/(N_total-1)
+    print("Constructing inputs for neuron %i with S_in %f ..." % (nrn_i, Sin))
     sync, rand = spikerlib.tools.gen_input_groups(N_in, r_inp, Sin,
                                                   0*ms, duration, dt)
-    syncconn = Connection(source=sync, target=lif_group[start:end],
+    syncconn = Connection(source=sync, target=lif_group[nrn_i],
                             weight=w_in, sparseness=1.0)
-    randconn = Connection(source=rand, target=lif_group[start:end],
+    randconn = Connection(source=rand, target=lif_group[nrn_i],
                             weight=w_in, sparseness=1.0)
     syncmon = SpikeMonitor(sync)
     randmon = SpikeMonitor(rand)
@@ -49,36 +79,7 @@ vmon = StateMonitor(lif_group, "V", record=True)
 network.add(spikemon, vmon)
 print("Running simulation for %s" % duration)
 network.run(duration)
-npss = []
-print("Calculating NPSS ...")
-for v, sp in zip(vmon.values, spikemon.spiketimes.itervalues()):
-    if len(sp)>2:
-        slopes = spikerlib.tools.npss(v, sp, Vrest, Vth, tau, w, dt)
-        npss.append((sp[1:], slopes))
-    else:
-        npss.append((0, 0))
+#npss = calc_npss(vmon, spikemon)
 print("Calculating pairwise Kreuz metric ...")
-kreuz = []
-idx = 0
-for layer, monset in enumerate(inp_mons):
-    smon, rmon = monset
-    start = layer*N_per_layer
-    end = (layer+1)*N_per_layer
-    allinputs = []
-    for synctrain in smon.spiketimes.itervalues():
-        allinputs.append(synctrain)
-    for randtrain in rmon.spiketimes.itervalues():
-        allinputs.append(randtrain)
-    outputspiketrains = spikemon.spiketimes.values()[start:end]
-    for sp in outputspiketrains:
-        idx += 1
-        print("%i/%i" % (idx, N_total))
-        t, krd = spikerlib.metrics.kreuz.interval(allinputs, sp)
-        t = [ti[0] if len(ti) == 1 else nan for ti in t]
-        if nan in t:
-            raise ValueError
-        krd = [krdi[0] if len(krdi) == 1 else nan for krdi in krd]
-        if nan in krd:
-            raise ValueError
-        kreuz.append((t, krd))
+kreuz = calc_kreuz(inp_mons)
 print("DONE!")
