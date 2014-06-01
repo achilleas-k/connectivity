@@ -1,18 +1,52 @@
 from brian import *
 import spikerlib
 
+def calc_npss(vmon, spikemon):
+    npss = []
+    print("Calculating NPSS ...")
+    for v, sp in zip(vmon.values, spikemon.spiketimes.itervalues()):
+        if len(sp)>2:
+            slopes = spikerlib.tools.npss(v, sp, Vrest, Vth, tau, w, dt)
+            npss.append((sp[1:], slopes))
+        else:
+            npss.append((0, 0))
+    return npss
+
+
+def collect_input_spikes(inp_mons):
+    allinputs = []
+    for monset in inp_mons:
+        inputset = []
+        smon, rmon = monset
+        for synctrain in smon.spiketimes.itervalues():
+            inputset.append(synctrain)
+        for randtrain in rmon.spiketimes.itervalues():
+            inputset.append(randtrain)
+        allinputs.append(inputset)
+    return allinputs
+
+
+def calc_kreuz(allinputs):
+    kreuz = []
+    nsamples = 100
+    for idx, inputset in enumerate(allinputs):
+        t, krd = spikerlib.metrics.kreuz.pairwise_mp(
+                inputset, 0*second,
+                duration, nsamples)
+        kreuz.append(mean(krd))
+        print("%i/%i ..." % (idx+1, len(allinputs)))
+    return kreuz
+
 
 defaultclock.dt = dt = 0.1*ms
-duration = 1*second
+duration = 2*second
 w = 2*ms
 Vrest = -70*mV
 Vth = -50*mV
 tau = 10*ms
 
-N_layers = 11
-N_per_layer = 1
-N_total = N_layers*N_per_layer
-N_in = 10
+N_total = 21
+N_in = 50
 r_inp = 50*Hz
 w_in = 2.2*mV
 
@@ -26,17 +60,17 @@ lif_group.V = Vrest
 network.add(lif_group)
 inp_groups = []
 inp_mons = []
-randidx = range(N_layers)
-shuffle(randidx)
-for layer in range(N_layers):
-    print("Constructing inputs for layer %i ..." % (layer))
-    sync, rand = spikerlib.tools.gen_input_groups(N_in, r_inp, 0.1*layer,
+randidx = range(N_total)
+#shuffle(randidx)
+Sin = linspace(0, 1, N_total)
+for nrnidx in range(N_total):
+    print("Constructing inputs for neuron %i ..." % (nrnidx+1))
+    sync, rand = spikerlib.tools.gen_input_groups(N_in, r_inp, Sin[nrnidx],
                                                   0*ms, duration, dt)
-    start = randidx[layer]*N_per_layer
-    end = (randidx[layer]+1)*N_per_layer
-    syncconn = Connection(source=sync, target=lif_group[start:end],
+    target = randidx[nrnidx]
+    syncconn = Connection(source=sync, target=lif_group[target],
                             weight=w_in, sparseness=1.0)
-    randconn = Connection(source=rand, target=lif_group[start:end],
+    randconn = Connection(source=rand, target=lif_group[target],
                             weight=w_in, sparseness=1.0)
     syncmon = SpikeMonitor(sync)
     randmon = SpikeMonitor(rand)
@@ -56,31 +90,20 @@ print("Calculating NPSS ...")
 for v, sp in zip(vmon.values, spikemon.spiketimes.itervalues()):
     if len(sp)>2:
         slopes = spikerlib.tools.npss(v, sp, Vrest, Vth, tau, w, dt)
-        npss.append((sp[1:], slopes))
+        npss.append(mean(slopes))
     else:
-        npss.append((0, 0))
+        npss.append(0)
 print("Calculating pairwise Kreuz metric ...")
 kreuz = []
-idx = 0
-for layer, monset in enumerate(inp_mons):
-    smon, rmon = monset
-    start = layer*N_per_layer
-    end = (layer+1)*N_per_layer
-    allinputs = []
-    for synctrain in smon.spiketimes.itervalues():
-        allinputs.append(synctrain)
-    for randtrain in rmon.spiketimes.itervalues():
-        allinputs.append(randtrain)
-    outputspiketrains = spikemon.spiketimes.values()[start:end]
-    for sp in outputspiketrains:
-        idx += 1
-        print("%i/%i" % (idx, N_total))
-        t, krd = spikerlib.metrics.kreuz.interval(allinputs, sp)
-        t = [ti[0] if len(ti) == 1 else nan for ti in t]
-        if nan in t:
-            raise ValueError
-        krd = [krdi[0] if len(krdi) == 1 else nan for krdi in krd]
-        if nan in krd:
-            raise ValueError
-        kreuz.append((t, krd))
+allinputs = collect_input_spikes(inp_mons)
+for nrnidx in range(N_total):
+    print("%i/%i" % (nrnidx+1, N_total))
+    #t, krd = spikerlib.metrics.kreuz.interval(allinputs[nrnidx],
+    #        spikemon[nrnidx], samples=100)
+    t, krd = spikerlib.metrics.kreuz.pairwise_mp(allinputs[nrnidx], 0*second,
+            duration, 100)
+    kreuz.append(mean(krd))
+print("Plotting ...")
+scatter(npss, kreuz, c=Sin)
+show()
 print("DONE!")
