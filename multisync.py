@@ -39,7 +39,7 @@ def calc_kreuz(allinputs):
 
 
 defaultclock.dt = dt = 0.1*ms
-duration = 2*second
+duration = 10*second
 w = 2*ms
 Vrest = -70*mV
 Vth = -50*mV
@@ -48,7 +48,7 @@ tau = 10*ms
 N_total = 21
 N_in = 50
 r_inp = 50*Hz
-w_in = 2.2*mV
+w_in = 0.5*mV
 
 network = Network()
 
@@ -84,7 +84,7 @@ spikemon = SpikeMonitor(lif_group)
 vmon = StateMonitor(lif_group, "V", record=True)
 network.add(spikemon, vmon)
 print("Running simulation for %s" % duration)
-network.run(duration)
+network.run(duration, report="stdout")
 npss = []
 print("Calculating NPSS ...")
 for v, sp in zip(vmon.values, spikemon.spiketimes.itervalues()):
@@ -103,7 +103,24 @@ for nrnidx in range(N_total):
     t, krd = spikerlib.metrics.kreuz.pairwise_mp(allinputs[nrnidx], 0*second,
             duration, 100)
     kreuz.append(mean(krd))
+kreuz = array(kreuz)
+npss = array(npss)
+npss_kr = sqrt(1-kreuz/0.3)
+errors = npss-npss_kr
 print("Plotting ...")
-scatter(npss, kreuz, c=Sin)
-show()
+#scatter(npss, kreuz, c=Sin)
+#show()
+from mpl_toolkits.mplot3d import Axes3D
+fig = plt.figure()
+ax = fig.add_subplot(111, projection="3d")
+ax.scatter(Sin, kreuz, npss)
+ax.set_xlabel("S_in")
+ax.set_ylabel("D_spike")
+ax.set_zlabel("NPSS")
+figure()
+scatter(npss, npss_kr)
+plot([0, 1], "k--")
+for n, e in zip(npss, errors):
+    plot([n, n], [n, n-e], "b-")
+axis([-0.05, 1.05, -0.05, 1.05])
 print("DONE!")
