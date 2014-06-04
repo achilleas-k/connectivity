@@ -39,7 +39,7 @@ def calc_kreuz(allinputs):
 
 
 defaultclock.dt = dt = 0.1*ms
-duration = 10*second
+duration = 20*second
 w = 2*ms
 Vrest = -70*mV
 Vth = -50*mV
@@ -123,4 +123,6 @@ plot([0, 1], "k--")
 for n, e in zip(npss, errors):
     plot([n, n], [n, n-e], "b-")
 axis([-0.05, 1.05, -0.05, 1.05])
+xlabel("NPSS")
+ylabel("Spike distance (rescaled)")
 print("DONE!")
