@@ -52,14 +52,14 @@ N_total = 100
 # random N_in within [30, 70]
 N_in_lst = [n for n in randint(30, 71, N_total)]
 # random r_in within [40, 100] Hz
-r_in_lst = [r for r in randint(40, 101, N_total)]
+r_in_lst = [int(r)*Hz for r in randint(40, 101, N_total)]
 # random w_in within bounds set according to the following contraint
-# 1.1*(V_th-V_rest) <= N_in*w_in <= 2*(V_th-V_rest)
-Nw_low = 1.1*(V_th-V_rest)
-Nw_high = 2*(V_th-V_rest)
+# 1.1*(Vth-Vrest) <= N_in*w_in <= 2*(Vth-Vrest)
+Nw_low = 1.1*(Vth-Vrest)
+Nw_high = 2*(Vth-Vrest)
 w_low = [Nw_low/N_in for N_in in N_in_lst]
 w_high = [Nw_high/N_in for N_in in N_in_lst]
-w_in_lst = [rand()*(h-l)+l for h, l in zip(w_high, w_low)]
+w_in_lst = [(rand()*(h-l)+l) for h, l in zip(w_high, w_low)]
 # random S_in within [0, 1] (rounded to 2 decimals)
 S_in_lst = np.round(rand(N_total), 2)
 
