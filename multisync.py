@@ -1,5 +1,6 @@
 from brian import *
 import spikerlib
+import itertools as it
 
 def calc_npss(vmon, spikemon):
     npss = []
@@ -39,16 +40,17 @@ def calc_kreuz(allinputs):
 
 
 defaultclock.dt = dt = 0.1*ms
-duration = 20*second
+duration = 2*second
 w = 2*ms
 Vrest = -70*mV
 Vth = -50*mV
 tau = 10*ms
 
-N_total = 21
-N_in = 50
-r_inp = 50*Hz
-w_in = 0.5*mV
+N_in_lst = [30, 50, 70]
+r_in_lst = [50*Hz]
+w_in_lst = [0.4*mV, 0.5*mV, 0.7*mV]
+S_in_lst = linspace(0, 1, 11)
+N_total = len(N_in_lst)*len(r_in_lst)*len(w_in_lst)*len(S_in_lst)
 
 network = Network()
 
@@ -62,10 +64,12 @@ inp_groups = []
 inp_mons = []
 randidx = range(N_total)
 #shuffle(randidx)
-Sin = linspace(0, 1, N_total)
-for nrnidx in range(N_total):
-    print("Constructing inputs for neuron %i ..." % (nrnidx+1))
-    sync, rand = spikerlib.tools.gen_input_groups(N_in, r_inp, Sin[nrnidx],
+nrnidx = 0
+configs = []
+for N_in, r_in, w_in, S_in in it.product(N_in_lst, r_in_lst, w_in_lst,
+        S_in_lst):
+    print("Constructing inputs for neuron %i/%i ..." % (nrnidx+1, N_total))
+    sync, rand = spikerlib.tools.gen_input_groups(N_in, r_in, S_in,
                                                   0*ms, duration, dt)
     target = randidx[nrnidx]
     syncconn = Connection(source=sync, target=lif_group[target],
@@ -77,6 +81,8 @@ for nrnidx in range(N_total):
     network.add(sync, rand, syncconn, randconn, syncmon, randmon)
     inp_groups.append((sync, rand))
     inp_mons.append((syncmon, randmon))
+    configs.append((N_in, r_in, w_in, S_in))
+    nrnidx += 1
 
 print("Inputs defined and connected.")
 print("Setting up global monitors ...")
@@ -108,15 +114,21 @@ npss = array(npss)
 npss_kr = sqrt(1-kreuz/0.3)
 errors = npss-npss_kr
 print("Plotting ...")
-#scatter(npss, kreuz, c=Sin)
+#scatter(npss, kreuz, c=S_in)
 #show()
 from mpl_toolkits.mplot3d import Axes3D
 fig = plt.figure()
 ax = fig.add_subplot(111, projection="3d")
-ax.scatter(Sin, kreuz, npss)
-ax.set_xlabel("S_in")
-ax.set_ylabel("D_spike")
-ax.set_zlabel("NPSS")
+#ax.scatter(S_in, kreuz, npss)
+#ax.set_xlabel("S_in")
+#ax.set_ylabel("D_spike")
+#ax.set_zlabel("NPSS")
+Nw_in = [c[0]*c[2] for c in configs]
+color = [1 if nw > 24*mV else 0 for nw in Nw_in]
+ax.scatter(Nw_in, npss, sqrt(1-array(kreuz)/0.3), c=color)
+ax.set_xlabel("$N_{in}w_{in}$")
+ax.set_ylabel("$NPSS$")
+ax.set_zlabel("$NPSS'$")
 figure()
 scatter(npss, npss_kr)
 plot([0, 1], "k--")
