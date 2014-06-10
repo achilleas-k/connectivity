@@ -40,14 +40,14 @@ def calc_kreuz(allinputs):
 
 
 defaultclock.dt = dt = 0.1*ms
-duration = 2*second
+duration = 5*second
 w = 2*ms
 Vrest = -70*mV
 Vth = -50*mV
 tau = 10*ms
 
 # number of simulations constant
-N_total = 100
+N_total = 2000
 # keep parameters as lists, at least for now
 # random N_in within [30, 70]
 N_in_lst = [n for n in randint(30, 71, N_total)]
@@ -99,7 +99,7 @@ print("Setting up global monitors ...")
 spikemon = SpikeMonitor(lif_group)
 vmon = StateMonitor(lif_group, "V", record=True)
 network.add(spikemon, vmon)
-print("Running simulation for %s" % duration)
+print("Running simulations for %s" % duration)
 network.run(duration, report="stdout")
 npss = []
 print("Calculating NPSS ...")
@@ -123,20 +123,31 @@ kreuz = array(kreuz)
 npss = array(npss)
 npss_kr = sqrt(1-kreuz/0.3)
 errors = npss-npss_kr
-print("Plotting ...")
-#from mpl_toolkits.mplot3d import Axes3D
-#fig = plt.figure()
-#ax = fig.add_subplot(111, projection="3d")
-#ax.scatter(Nw_in, npss, sqrt(1-array(kreuz)/0.3), c=color)
-#ax.set_xlabel("$N_{in}w_{in}$")
-#ax.set_ylabel("$NPSS$")
-#ax.set_zlabel("$NPSS'$")
-figure()
-scatter(npss, npss_kr)
-plot([0, 1], "k--")
-for n, e in zip(npss, errors):
-    plot([n, n], [n, n-e], "b-")
-axis([-0.05, 1.05, -0.05, 1.05])
-xlabel("NPSS")
-ylabel("Spike distance (rescaled)")
+#print("Plotting ...")
+##from mpl_toolkits.mplot3d import Axes3D
+##fig = plt.figure()
+##ax = fig.add_subplot(111, projection="3d")
+##ax.scatter(Nw_in, npss, sqrt(1-array(kreuz)/0.3), c=color)
+##ax.set_xlabel("$N_{in}w_{in}$")
+##ax.set_ylabel("$NPSS$")
+##ax.set_zlabel("$NPSS'$")
+#figure()
+#scatter(npss, npss_kr)
+#plot([0, 1], "k--")
+#for n, e in zip(npss, errors):
+#    plot([n, n], [n, n-e], "b-")
+#axis([-0.05, 1.05, -0.05, 1.05])
+#xlabel("NPSS")
+#ylabel("Spike distance (rescaled)")
+filename = "npss_kreuz_mc.npz"
+print("Saving results to %s ... " % filename)
+np.savez(filename, 
+        N_in=N_in_lst,
+        r_in=r_in_lst,
+        w_in=w_in_lst,
+        S_in=S_in_lst,
+        npss=npss,
+        kreuz=kreuz)
+
+
 print("DONE!")
