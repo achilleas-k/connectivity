@@ -47,7 +47,7 @@ Vth = -50*mV
 tau = 10*ms
 
 # number of simulations constant
-N_total = 1000
+N_total = 100
 # keep parameters as lists, at least for now
 # random N_in within [30, 70]
 N_in_lst = [n for n in randint(30, 71, N_total)]
@@ -60,7 +60,8 @@ Nw_high = 2*(V_th-V_rest)
 w_low = [Nw_low/N_in for N_in in N_in_lst]
 w_high = [Nw_high/N_in for N_in in N_in_lst]
 w_in_lst = [rand()*(h-l)+l for h, l in zip(w_high, w_low)]
-S_in_lst = [s for s in linspace(0, 1, 11)]
+# random S_in within [0, 1] (rounded to 2 decimals)
+S_in_lst = np.round(rand(N_total), 2)
 
 network = Network()
 
@@ -76,8 +77,7 @@ randidx = range(N_total)
 #shuffle(randidx)
 nrnidx = 0
 configs = []
-for N_in, r_in, w_in, S_in in it.product(N_in_lst, r_in_lst, w_in_lst,
-        S_in_lst):
+for N_in, r_in, w_in, S_in in zip(N_in_lst, r_in_lst, w_in_lst, S_in_lst):
     print("Constructing inputs for neuron %i/%i ..." % (nrnidx+1, N_total))
     sync, rand = spikerlib.tools.gen_input_groups(N_in, r_in, S_in,
                                                   0*ms, duration, dt)
@@ -124,21 +124,13 @@ npss = array(npss)
 npss_kr = sqrt(1-kreuz/0.3)
 errors = npss-npss_kr
 print("Plotting ...")
-#scatter(npss, kreuz, c=S_in)
-#show()
-from mpl_toolkits.mplot3d import Axes3D
-fig = plt.figure()
-ax = fig.add_subplot(111, projection="3d")
-#ax.scatter(S_in, kreuz, npss)
-#ax.set_xlabel("S_in")
-#ax.set_ylabel("D_spike")
-#ax.set_zlabel("NPSS")
-Nw_in = [c[0]*c[2] for c in configs]
-color = [1 if nw > 24*mV else 0 for nw in Nw_in]
-ax.scatter(Nw_in, npss, sqrt(1-array(kreuz)/0.3), c=color)
-ax.set_xlabel("$N_{in}w_{in}$")
-ax.set_ylabel("$NPSS$")
-ax.set_zlabel("$NPSS'$")
+#from mpl_toolkits.mplot3d import Axes3D
+#fig = plt.figure()
+#ax = fig.add_subplot(111, projection="3d")
+#ax.scatter(Nw_in, npss, sqrt(1-array(kreuz)/0.3), c=color)
+#ax.set_xlabel("$N_{in}w_{in}$")
+#ax.set_ylabel("$NPSS$")
+#ax.set_zlabel("$NPSS'$")
 figure()
 scatter(npss, npss_kr)
 plot([0, 1], "k--")
