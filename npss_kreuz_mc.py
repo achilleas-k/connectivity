@@ -46,11 +46,21 @@ Vrest = -70*mV
 Vth = -50*mV
 tau = 10*ms
 
-N_in_lst = [30, 50, 70]
-r_in_lst = [50*Hz]
-w_in_lst = [0.4*mV, 0.5*mV, 0.7*mV]
-S_in_lst = linspace(0, 1, 11)
-N_total = len(N_in_lst)*len(r_in_lst)*len(w_in_lst)*len(S_in_lst)
+# number of simulations constant
+N_total = 1000
+# keep parameters as lists, at least for now
+# random N_in within [30, 70]
+N_in_lst = [n for n in randint(30, 71, N_total)]
+# random r_in within [40, 100] Hz
+r_in_lst = [r for r in randint(40, 101, N_total)]
+# random w_in within bounds set according to the following contraint
+# 1.1*(V_th-V_rest) <= N_in*w_in <= 2*(V_th-V_rest)
+Nw_low = 1.1*(V_th-V_rest)
+Nw_high = 2*(V_th-V_rest)
+w_low = [Nw_low/N_in for N_in in N_in_lst]
+w_high = [Nw_high/N_in for N_in in N_in_lst]
+w_in_lst = [rand()*(h-l)+l for h, l in zip(w_high, w_low)]
+S_in_lst = [s for s in linspace(0, 1, 11)]
 
 network = Network()
 
