@@ -1,5 +1,6 @@
 from brian import *
 import spikerlib
+import time
 
 def calc_npss(vmon, spikemon):
     npss = []
@@ -141,7 +142,7 @@ errors = npss-npss_kr
 #axis([-0.05, 1.05, -0.05, 1.05])
 #xlabel("NPSS")
 #ylabel("Spike distance (rescaled)")
-filename = "npss_kreuz_mc.npz"
+filename = "npss_kreuz_mc_%i.npz" % (int(time.time()))
 print("Saving results to %s ... " % filename)
 np.savez(filename,
         N_in=N_in_lst,
