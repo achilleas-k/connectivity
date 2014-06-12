@@ -81,10 +81,10 @@ for N_in, r_in, w_in, S_in in zip(N_in_lst, r_in_lst, w_in_lst, S_in_lst):
     sync, rand = spikerlib.tools.gen_input_groups(N_in, r_in, S_in,
                                                   0*ms, duration, dt)
     target = randidx[nrnidx]
-    syncconn = Connection(source=sync, target=lif_group[target],
-                            weight=w_in, sparseness=1.0)
-    randconn = Connection(source=rand, target=lif_group[target],
-                            weight=w_in, sparseness=1.0)
+    syncconn = Connection(sync, lif_group, 'V')
+    syncconn.connect_full(sync, lif_group[target], weight=w_in)
+    randconn = Connection(rand, lif_group, 'V')
+    randconn.connect_full(rand, lif_group[target], weight=w_in)
     syncmon = SpikeMonitor(sync)
     randmon = SpikeMonitor(rand)
     network.add(sync, rand, syncconn, randconn, syncmon, randmon)
