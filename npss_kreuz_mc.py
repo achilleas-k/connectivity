@@ -46,7 +46,7 @@ Vth = -50*mV
 tau = 10*ms
 
 # number of simulations constant
-N_total = 5000
+N_total = 200
 # keep parameters as lists, at least for now
 # random N_in within [30, 70]
 N_in_lst = [n for n in randint(30, 71, N_total)]
@@ -80,14 +80,17 @@ for N_in, r_in, w_in, S_in in zip(N_in_lst, r_in_lst, w_in_lst, S_in_lst):
     print("Constructing inputs for neuron %i/%i ..." % (nrnidx+1, N_total))
     sync, rand = spikerlib.tools.gen_input_groups(N_in, r_in, S_in,
                                                   0*ms, duration, dt)
-    target = randidx[nrnidx]
-    syncconn = Connection(sync, lif_group, 'V')
-    syncconn.connect_full(sync, lif_group[target], weight=w_in)
-    randconn = Connection(rand, lif_group, 'V')
-    randconn.connect_full(rand, lif_group[target], weight=w_in)
     syncmon = SpikeMonitor(sync)
     randmon = SpikeMonitor(rand)
-    network.add(sync, rand, syncconn, randconn, syncmon, randmon)
+    target = randidx[nrnidx]
+    if int(S_in*N_in):
+        syncconn = Connection(sync, lif_group, 'V')
+        syncconn.connect_full(sync, lif_group[target], weight=w_in)
+        network.add(sync, syncconn, syncmon)
+    if 1-int(S_in*N_in):
+        randconn = Connection(rand, lif_group, 'V')
+        randconn.connect_full(rand, lif_group[target], weight=w_in)
+        network.add(rand, randconn, randmon)
     inp_groups.append((sync, rand))
     inp_mons.append((syncmon, randmon))
     configs.append((N_in, r_in, w_in, S_in))
