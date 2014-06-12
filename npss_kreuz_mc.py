@@ -1,6 +1,5 @@
 from brian import *
 import spikerlib
-import itertools as it
 
 def calc_npss(vmon, spikemon):
     npss = []
@@ -47,7 +46,7 @@ Vth = -50*mV
 tau = 10*ms
 
 # number of simulations constant
-N_total = 2000
+N_total = 5000
 # keep parameters as lists, at least for now
 # random N_in within [30, 70]
 N_in_lst = [n for n in randint(30, 71, N_total)]
@@ -141,7 +140,7 @@ errors = npss-npss_kr
 #ylabel("Spike distance (rescaled)")
 filename = "npss_kreuz_mc.npz"
 print("Saving results to %s ... " % filename)
-np.savez(filename, 
+np.savez(filename,
         N_in=N_in_lst,
         r_in=r_in_lst,
         w_in=w_in_lst,
