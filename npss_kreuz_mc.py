@@ -50,19 +50,19 @@ tau = 10*ms
 N_total = 100
 # keep parameters as lists, at least for now
 # random N_in within [30, 70]
-N_in_lst = [n for n in randint(30, 71, N_total)]
+N_in_list = [n for n in randint(30, 71, N_total)]
 # random r_in within [40, 100] Hz
-r_in_lst = [int(r)*Hz for r in randint(40, 101, N_total)]
+r_in_list = [int(r)*Hz for r in randint(40, 101, N_total)]
 # random w_in within bounds set according to the following contraint
 # 1.1*(Vth-Vrest) <= N_in*w_in <= 2*(Vth-Vrest)
 Nw_low = 1.1*(Vth-Vrest)
 Nw_high = 2*(Vth-Vrest)
-w_low = [Nw_low/N_in for N_in in N_in_lst]
-w_high = [Nw_high/N_in for N_in in N_in_lst]
-w_in_lst = [(rand()*(h-l)+l) for h, l in zip(w_high, w_low)]
+w_low = [Nw_low/N_in for N_in in N_in_list]
+w_high = [Nw_high/N_in for N_in in N_in_list]
+w_in_list = [(rand()*(h-l)+l) for h, l in zip(w_high, w_low)]
 # random S_in within [0, 1] (rounded to 2 decimals)
-S_in_lst = np.round(rand(N_total), 2)
-sigma_in_lst = np.round(rand(N_total)*4*ms, 4)
+S_in_list = np.round(rand(N_total), 2)
+sigma_in_list = np.round(rand(N_total)*4*ms, 4)
 
 network = Network()
 
@@ -78,8 +78,8 @@ randidx = range(N_total)
 #shuffle(randidx)
 nrnidx = 0
 configs = []
-for N_in, r_in, w_in, S_in, sigma_in in zip(N_in_lst, r_in_lst, w_in_lst,
-        S_in_lst, sigma_in_lst):
+for N_in, r_in, w_in, S_in, sigma_in in zip(N_in_list, r_in_list, w_in_list,
+        S_in_list, sigma_in_list):
     print("Constructing inputs for neuron %i/%i ..." % (nrnidx+1, N_total))
     sync, rand = spikerlib.tools.gen_input_groups(N_in, r_in, S_in,
                                                   0*ms, duration, dt)
@@ -145,10 +145,10 @@ errors = npss-npss_kr
 filename = "npss_kreuz_mc_%i.npz" % (int(time.time()))
 print("Saving results to %s ... " % filename)
 np.savez(filename,
-        N_in=N_in_lst,
-        r_in=r_in_lst,
-        w_in=w_in_lst,
-        S_in=S_in_lst,
+        N_in=N_in_list,
+        r_in=r_in_list,
+        w_in=w_in_list,
+        S_in=S_in_list,
         npss=npss,
         kreuz=kreuz)
 print("DONE!")
