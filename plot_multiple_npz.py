@@ -7,12 +7,30 @@ import sys
 import os
 import glob
 import numpy as np
+import matplotlib.pyplot as plt
 
 directory = "."
-if len(sys.argv) > 2:
-    directory = sys.argv[2]
+if len(sys.argv) > 1:
+    directory = sys.argv[1]
 npzglob = os.path.join(directory, "*.npz")
 npzfiles = glob.glob(npzglob)
 
-for npz in npzfiles:
-    npzdata = 
+nfiles = len(npzfiles)
+npss = []
+kreuz = []
+for idx, npz in enumerate(npzfiles):
+    npzdata = np.load(npz)
+    npss.extend(npzdata["npss"])
+    kreuz.extend(npzdata["kreuz"])
+
+npss = np.array(npss)
+kreuz = np.array(kreuz)
+npss_kr = np.sqrt(1-kreuz/0.3)-0.0148
+errors = npss-npss_kr
+plt.scatter(npss, npss_kr)
+plt.plot([0, 0], [1, 1], "k--")
+#for n, e in zip(npss, errors):
+#    plt.plot([n, n], [n, n-e], "b-")
+plt.xlabel("NPSS")
+plt.ylabel("Spike distance (rescaled)")
+plt.show()
