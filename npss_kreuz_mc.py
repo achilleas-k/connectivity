@@ -62,6 +62,7 @@ w_high = [Nw_high/N_in for N_in in N_in_lst]
 w_in_lst = [(rand()*(h-l)+l) for h, l in zip(w_high, w_low)]
 # random S_in within [0, 1] (rounded to 2 decimals)
 S_in_lst = np.round(rand(N_total), 2)
+sigma_in_lst = np.round(rand(N_total)*4*ms, 4)
 
 network = Network()
 
@@ -77,7 +78,8 @@ randidx = range(N_total)
 #shuffle(randidx)
 nrnidx = 0
 configs = []
-for N_in, r_in, w_in, S_in in zip(N_in_lst, r_in_lst, w_in_lst, S_in_lst):
+for N_in, r_in, w_in, S_in, sigma_in in zip(N_in_lst, r_in_lst, w_in_lst,
+        S_in_lst, sigma_in_lst):
     print("Constructing inputs for neuron %i/%i ..." % (nrnidx+1, N_total))
     sync, rand = spikerlib.tools.gen_input_groups(N_in, r_in, S_in,
                                                   0*ms, duration, dt)
