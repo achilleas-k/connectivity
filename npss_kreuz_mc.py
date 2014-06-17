@@ -68,8 +68,6 @@ lif_group.V = Vrest
 network.add(lif_group)
 inp_groups = []
 inp_mons = []
-randidx = range(N_total)
-#shuffle(randidx)
 nrnidx = 0
 configs = []
 for N_in, r_in, w_in, S_in, sigma_in in zip(N_in_list, r_in_list, w_in_list,
@@ -79,8 +77,8 @@ for N_in, r_in, w_in, S_in, sigma_in in zip(N_in_list, r_in_list, w_in_list,
             N_in, r_in, S_in,
             sigma_in*second,
             duration)
-    target = randidx[nrnidx]
     input_conn = Connection(input_group, lif_group, 'V')
+    input_conn.connect_full(input_group, lif_group[nrnidx], weight=w_in)
     input_mon = SpikeMonitor(input_group)
     network.add(input_group, input_conn, input_mon)
     inp_groups.append(input_group)
