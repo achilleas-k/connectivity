@@ -81,20 +81,16 @@ configs = []
 for N_in, r_in, w_in, S_in, sigma_in in zip(N_in_list, r_in_list, w_in_list,
         S_in_list, sigma_in_list):
     print("Constructing inputs for neuron %i/%i ..." % (nrnidx+1, N_total))
-    sync, rand = spikerlib.tools.gen_input_groups(N_in, r_in, S_in,
-                                                  sigma_in*second,
-                                                  duration, dt)
-    syncmon = SpikeMonitor(sync)
-    randmon = SpikeMonitor(rand)
+    input_group = spikerlib.tools.fast_synchronous_input_gen(
+            N_in, r_in, S_in,
+            sigma_in*second,
+            duration)
     target = randidx[nrnidx]
-    syncconn = Connection(sync, lif_group, 'V')
-    syncconn.connect_full(sync, lif_group[target], weight=w_in)
-    network.add(sync, syncconn, syncmon)
-    randconn = Connection(rand, lif_group, 'V')
-    randconn.connect_full(rand, lif_group[target], weight=w_in)
-    network.add(rand, randconn, randmon)
-    inp_groups.append((sync, rand))
-    inp_mons.append((syncmon, randmon))
+    input_conn = Connection(input_group, lif_group, 'V')
+    input_mon = SpikeMonitor(input_group)
+    network.add(input_group, input_conn, input_mon)
+    inp_groups.append(input_group)
+    inp_mons.append(input_mon)
     configs.append((N_in, r_in, w_in, S_in))
     nrnidx += 1
 
