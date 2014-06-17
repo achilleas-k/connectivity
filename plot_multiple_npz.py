@@ -28,7 +28,7 @@ kreuz = np.array(kreuz)
 npss_kr = np.sqrt(1-kreuz/0.3)-0.0148
 errors = npss-npss_kr
 plt.scatter(npss, npss_kr)
-plt.plot([0, 0], [1, 1], "k--")
+plt.plot([0, 1], [0, 1], "k--")
 #for n, e in zip(npss, errors):
 #    plt.plot([n, n], [n, n-e], "b-")
 plt.xlabel("NPSS")
