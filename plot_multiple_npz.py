@@ -18,10 +18,14 @@ npzfiles = glob.glob(npzglob)
 nfiles = len(npzfiles)
 npss = []
 kreuz = []
+sync = []
+sigma = []
 for idx, npz in enumerate(npzfiles):
     npzdata = np.load(npz)
     npss.extend(npzdata["npss"])
     kreuz.extend(npzdata["kreuz"])
+    sync.extend(npzdata["S_in"])
+    sigma.extend(npzdata["sigma_in"])
 
 npss = np.array(npss)
 kreuz = np.array(kreuz)
