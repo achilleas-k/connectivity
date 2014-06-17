@@ -25,7 +25,11 @@ for idx, npz in enumerate(npzfiles):
     npss.extend(npzdata["npss"])
     kreuz.extend(npzdata["kreuz"])
     sync.extend(npzdata["S_in"])
-    sigma.extend(npzdata["sigma_in"])
+    if "sigma_in" in npzdata.files:
+        sigma.extend(npzdata["sigma_in"])
+    else:
+        ndata = len(npzdata["npss"])
+        sigma.extend([0]*ndata)
 
 npss = np.array(npss)
 kreuz = np.array(kreuz)

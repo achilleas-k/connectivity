@@ -82,7 +82,8 @@ for N_in, r_in, w_in, S_in, sigma_in in zip(N_in_list, r_in_list, w_in_list,
         S_in_list, sigma_in_list):
     print("Constructing inputs for neuron %i/%i ..." % (nrnidx+1, N_total))
     sync, rand = spikerlib.tools.gen_input_groups(N_in, r_in, S_in,
-                                                  sigma_in, duration, dt)
+                                                  sigma_in*second,
+                                                  duration, dt)
     syncmon = SpikeMonitor(sync)
     randmon = SpikeMonitor(rand)
     target = randidx[nrnidx]
