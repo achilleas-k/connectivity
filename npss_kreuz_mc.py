@@ -16,14 +16,8 @@ def calc_npss(vmon, spikemon):
 
 def collect_input_spikes(inp_mons):
     allinputs = []
-    for monset in inp_mons:
-        inputset = []
-        smon, rmon = monset
-        for synctrain in smon.spiketimes.itervalues():
-            inputset.append(synctrain)
-        for randtrain in rmon.spiketimes.itervalues():
-            inputset.append(randtrain)
-        allinputs.append(inputset)
+    for mon in inp_mons:
+        allinputs.append(mon.spiketimes.values())
     return allinputs
 
 
