@@ -49,7 +49,7 @@ for idx in range(len(npss)):
         relerr[idx] = abs(npss[idx]-npss_kr[idx])/npss[idx]
     else:
         relerr[idx] = npss_kr[idx]
-plt.scatter(npss, npss_kr)
+plt.scatter(npss, npss_kr, c=sigma)
 plt.plot([0, 1], [0, 1], "k--")
 #for n, e in zip(npss, errors):
 #    plt.plot([n, n], [n, n-e], "b-")
