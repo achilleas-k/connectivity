@@ -35,7 +35,7 @@ def calc_kreuz(allinputs):
 
 defaultclock.dt = dt = 0.1*ms
 duration = 5*second
-w = 2*ms
+w = 0.1*ms
 Vrest = -70*mV
 Vth = -50*mV
 tau = 10*ms
@@ -57,6 +57,9 @@ w_in_list = [(rand()*(h-l)+l) for h, l in zip(w_high, w_low)]
 # random S_in within [0, 1] (rounded to 2 decimals)
 S_in_list = np.round(rand(N_total), 2)
 sigma_in_list = np.round(rand(N_total)*4*ms, 4)
+# make half the simulations have sigma = 0 ms
+for idx in range(N_total/2):
+    sigma[idx] = 0*ms
 
 network = Network()
 
