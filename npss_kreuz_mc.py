@@ -35,7 +35,7 @@ def calc_kreuz(allinputs):
 
 defaultclock.dt = dt = 0.1*ms
 duration = 5*second
-w = 0.1*ms
+w = 1*ms
 Vrest = -70*mV
 Vth = -50*mV
 tau = 10*ms
