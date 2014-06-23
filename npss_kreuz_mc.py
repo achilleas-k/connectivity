@@ -59,7 +59,7 @@ S_in_list = np.round(rand(N_total), 2)
 sigma_in_list = np.round(rand(N_total)*4*ms, 4)
 # make half the simulations have sigma = 0 ms
 for idx in range(N_total/2):
-    sigma[idx] = 0*ms
+    sigma_in_list[idx] = 0*ms
 
 network = Network()
 
