@@ -3,8 +3,6 @@ Find the relationship between the Kreuz measure and Sin (no noise) using data
 from npz files (given a directory).
 """
 from scipy.optimize import curve_fit
-import glob
-
 import sys
 import os
 import glob
@@ -14,7 +12,6 @@ import matplotlib.pyplot as plt
 
 def fit_func(dist, a, b, c, d):
     return a*dist**3+b*dist**2+c*dist+d
-
 
 directory = "."
 if len(sys.argv) > 1:
@@ -45,10 +42,34 @@ for idx, npz in enumerate(npzfiles):
         ndata = len(npzdata["npss"])
         sigma.extend([0]*ndata)
 
+# ignore cases with sigma > 0
+npss = np.array(npss)
+kreuz = np.array(kreuz)
+sigma = np.array(sigma)
+s0 = sigma < 0.0001
+npss = npss[s0]
+kreuz = kreuz[s0]
 
-popt, pcov = curve_fit(fit_func, npss, kreuz)
+pnpss, _ = curve_fit(fit_func, npss, kreuz)
+pkreuz, _ = curve_fit(fit_func, kreuz, npss)
+print("Curve fit complete:")
+print("M = %f D^3 + %f D^2 + %f D + %f" % tuple(pnpss))
+print("D = %f M^3 + %f M^2 + %f M + %f" % tuple(pkreuz))
 print("Plotting ...")
+plt.figure(1)
 plt.scatter(npss, kreuz)
-plt.plot(npss, fit_func(npss, *popt), 'r--', linewidth=2)
+plt.plot(np.sort(npss), fit_func(np.sort(npss), *pnpss), 'r--', linewidth=2)
+plt.xlabel("$M$")
+plt.ylabel("$D_s$")
+plt.figure(2)
+plt.scatter(npss, fit_func(kreuz, *pkreuz))
+plt.plot([0, 1], 'r--', linewidth=2)
+plt.xlabel("$M$")
+plt.ylabel("$f(D_s)$")
+plt.figure(3)
+plt.scatter(kreuz, fit_func(npss, *pnpss))
+plt.plot([0, max(kreuz)], [0, max(kreuz)], 'r--', linewidth=2)
+plt.xlabel("$D_s$")
+plt.ylabel("$g(M)$")
 plt.show()
 print("DONE!")
