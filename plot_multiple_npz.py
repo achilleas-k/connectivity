@@ -37,10 +37,14 @@ for idx, npz in enumerate(npzfiles):
         ndata = len(npzdata["npss"])
         sigma.extend([0]*ndata)
 
-# TODO: Filter results where sync == 0, since they had no spiking
-
+# ignore cases with sigma > 0
 npss = np.array(npss)
 kreuz = np.array(kreuz)
+sigma = np.array(sigma)
+s0 = sigma < 0.0001
+npss = npss[s0]
+kreuz = kreuz[s0]
+
 npss_kr = np.sqrt(1-kreuz/0.3) #-0.0148
 errors = npss-npss_kr
 relerr = np.zeros(len(npss))
