@@ -118,7 +118,7 @@ for src in source_nrns:
     inp_idx += 1
 axis(xmin=0, xmax=float(duration))
 subplot(212)
-plot(spike_mon[max_idx][1:], npss[max_idx], "-o")
+#plot(spike_mon[max_idx][1:], npss[max_idx], "-o")
 axis(xmin=0, xmax=float(duration))
 
 
