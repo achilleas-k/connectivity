@@ -11,13 +11,11 @@ Vth = -50*mV
 tau = 20*ms
 n_ext = 100
 p_ext = 0.5
-p_int = 0.05
-w_ext = 0.5*mV
+w_ext = 0.1*mV
 r_ext = 10*Hz
-w_int = 0.1*mV
 lifeq = Equations("""
-                    dV/dt = (Vrest-V+I)/tau+xi*0.1*mvolt/sqrt(dt) : volt
-                    I = 5*mV*sin(t*5*Hz*pi) : volt
+                    dV/dt = (Vrest-V+I)/tau+xi*0.2*mvolt/sqrt(dt) : volt
+                    I = 10*mV*sin(t*5*Hz*pi) : volt
                    """)
 lifeq.prepare()
 lifgroup = NeuronGroup(1000, lifeq, threshold="V>Vth", reset=Vrest,
@@ -25,8 +23,8 @@ lifgroup = NeuronGroup(1000, lifeq, threshold="V>Vth", reset=Vrest,
 lifgroup.V = Vrest
 
 inpgroup = PoissonGroup(n_ext, rates=r_ext)
-#inpconn = Connection(inpgroup, lifgroup, weight=w_ext,
-#                      sparseness=p_ext, fixed=True, delay=5*ms)
+inpconn = Connection(inpgroup, lifgroup, weight=w_ext,
+                      sparseness=p_ext, fixed=True, delay=1*ms)
 
 print("Setting up monitors ...")
 inpmon = SpikeMonitor(inpgroup)
@@ -41,8 +39,10 @@ if spikemon.nspikes:
     figure()
     subplot2grid((4, 1), (0, 0), rowspan=1)
     plot(t, sin(t*5*Hz*pi))
+    axis(xmin=0, xmax=float(duration))
     subplot2grid((4, 1), (1, 0), rowspan=2)
     raster_plot(spikemon)
+    axis(xmin=0, xmax=duration/ms)
     t, convspikes = sl.tools.spikeconvolve(spikemon, 5*ms)
     subplot2grid((4, 1), (3, 0), rowspan=3)
     plot(t, convspikes)
