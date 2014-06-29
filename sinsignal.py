@@ -48,3 +48,5 @@ if spikemon.nspikes:
     plot(t, convspikes)
     axis(xmin=0, xmax=float(duration))
     show()
+else:
+    print("No spikes were fired.")
