@@ -5,17 +5,23 @@ def connect_recurrent(excgroup, inhgroup):
     # TODO: binomial probability of connecting
     print("Constructing excitatory to inhibitory connections ...")
     exc2inhconn = Connection(excgroup, inhgroup, state='V',
-                             delay=(0.5*ms, 3*ms))
-    exc2inhconn.connect_random(excgroup, inhgroup, p=0.1, weight=0.1*mV)
+                             delay=(0.5*ms, 3*ms), weight=0.1*mV,
+                             sparseness=0.1)
     print("Constructing inhibitory recurrent connections ...")
     inh2inhconn = Connection(inhgroup, inhgroup, state='V',
-                             delay=(0.5*ms, 3*ms))
-    inh2inhconn.connect_random(inhgroup, inhgroup, p=0.1, weight=0.6*mV)
+                             delay=(0.5*ms, 3*ms), weight=-0.6*mV,
+                             sparseness=0.1)
     print("Constructing inhibitory to excitatory connections ...")
     inh2excconn = Connection(inhgroup, excgroup, state='V',
-                             delay=(0.5*ms, 3*ms))
-    inh2excconn.connect_random(inhgroup, excgroup, p=0.1, weight=0.6*mV)
+                             delay=(0.5*ms, 3*ms), weight=-0.6*mV,
+                             sparseness=0.1)
     return exc2inhconn, inh2excconn, inh2inhconn
+
+def create_chains(excgroup):
+    # TODO: create synfire chains
+    print("NIY: Creatying synfire chains")
+    exc2excconn = Connection(excgroup, excgroup)
+    return exc2excconn
 
 print("Preparing simulation ...")
 network = Network()
@@ -42,23 +48,10 @@ inhgroup = NeuronGroup(Ninh, lifeq, threshold="V>Vth", reset=Vrest,
                        refractory=2*ms)
 inhgroup.V = Vrest
 network.add(inhgroup)
-#exc2inhconn, inh2excconn, inh2inhconn = connect_recurrent(excgroup, inhgroup)
-
-# TODO: binomial probability of connecting
-print("Constructing excitatory to inhibitory connections ...")
-exc2inhconn = Connection(excgroup, inhgroup, state='V')
-#                         delay=(0.5*ms, 3*ms))
-exc2inhconn.connect_random(excgroup, inhgroup, p=0.1, weight=0.1*mV)
-print("Constructing inhibitory recurrent connections ...")
-inh2inhconn = Connection(inhgroup, inhgroup, state='V')
-#                         delay=(0.5*ms, 3*ms))
-inh2inhconn.connect_random(inhgroup, inhgroup, p=0.1, weight=0.6*mV)
-print("Constructing inhibitory to excitatory connections ...")
-inh2excconn = Connection(inhgroup, excgroup, state='V')
-                         #delay=(0.5*ms, 3*ms))
-#inh2excconn.connect_random(inhgroup, excgroup, p=0.1, weight=0.6*mV)
-inh2excconn.connect_full(inhgroup, excgroup, weight=0.6*mV)
+exc2inhconn, inh2excconn, inh2inhconn = connect_recurrent(excgroup, inhgroup)
 network.add(exc2inhconn, inh2excconn, inh2inhconn)
+exc2excconn = create_chains(excgroup)
+network.add(exc2excconn)
 
 print("Setting up monitors ...")
 excvmon = StateMonitor(excgroup, 'V', record=1)
