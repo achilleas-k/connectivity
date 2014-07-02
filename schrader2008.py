@@ -2,7 +2,6 @@ from brian import *
 import spikerlib as sl
 
 def connect_recurrent(excgroup, inhgroup):
-    # TODO: binomial probability of connecting
     print("Constructing excitatory to inhibitory connections ...")
     exc2inhconn = Connection(excgroup, inhgroup, state='V',
                              delay=(0.5*ms, 3*ms), weight=0.1*mV,
