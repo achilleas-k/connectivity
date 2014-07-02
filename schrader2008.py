@@ -1,6 +1,14 @@
 from brian import *
 import spikerlib as sl
 
+def connect_inhibitory(group):
+    print("Constructing inhibitory recurrent connections ...")
+    # TODO: make inh2inhconn
+    print("Constructing inhibitory to excitatory connections ...")
+    # TODO: make inh2excconn
+    print("Constructing excitatory to inhibitory connections ...")
+    # TODO: make exc2inhconn
+    return None, None, None
 
 print("Preparing simulation ...")
 defaultclock.dt = dt = 0.1*ms
@@ -10,16 +18,20 @@ Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
 C = 250*pF
+DC = 350*pA
 Nexc = 10000
 Ninh = 10000
 lifeq = Equations("""
-dV/dt = (Vrest-V)/tau+I/C : volt
+dV/dt = (Vrest-V)/tau+DC/C : volt
 """)
 lifeq.prepare()
 excgrouup = NeuronGroup(Nexc, lifeq, threshold="V>Vth", reset=Vrest,
                         refractory=2*ms)
 excgrouup.V = Vrest
-
+inhgroup = NeuronGroup(Ninh, lifeq, threshold="V>Vth", reset=Vrest,
+                       refractory=2*ms)
+inhgroup.V = Vrest
+exc2inhconn, ing2excconn, inh2inhconn = connect_recurrent(excgroup, inhgroup)
 
 print("Setting up monitors ...")
 inpmon = SpikeMonitor(inpgroup)
