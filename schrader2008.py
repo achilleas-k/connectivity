@@ -19,6 +19,16 @@ def connect_recurrent(excgroup, inhgroup):
 def create_chains(excgroup):
     # TODO: create synfire chains
     print("NIY: Creatying synfire chains")
+    nchains = 50
+    nlinks = 20
+    width = 100
+    weight = 0.5*mV
+    exc2excconn = Connection(excgroup, excgroup, state='V')
+    for nc in range(nchains):
+        chainidxes = randint(0, len(excgroup), width*nlinks)
+        for nl in range(1, nlinks):
+            pass
+
     exc2excconn = Connection(excgroup, excgroup)
     return exc2excconn
 
