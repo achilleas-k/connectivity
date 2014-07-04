@@ -17,20 +17,25 @@ def connect_recurrent(excgroup, inhgroup):
     return exc2inhconn, inh2excconn, inh2inhconn
 
 def create_chains(excgroup):
-    # TODO: create synfire chains
-    print("NIY: Creatying synfire chains")
+    print("Creating synfire chains ...")
     nchains = 50
+    nchains = 10
     nlinks = 20
     width = 100
     weight = 0.5*mV
-    exc2excconn = Connection(excgroup, excgroup, state='V')
+    synfireconns = []
     for nc in range(nchains):
+        print("%i/%i ..." % (nc+1, nchains))
         chainidxes = randint(0, len(excgroup), width*nlinks)
-        for nl in range(1, nlinks):
-            pass
-
-    exc2excconn = Connection(excgroup, excgroup)
-    return exc2excconn
+        chainidxes = chainidxes.reshape(nlinks, width)
+        for prevlnk, nxtlnk in zip(chainidxes[:-1], chainidxes[1:]):
+            delay = rand()*2.5*ms+0.5*ms  # uniform [0.5, 3]
+            layerconn = Connection(excgroup, excgroup, 'V', delay=delay)
+            for pl in prevlnk:
+                for nl in nxtlnk:
+                    layerconn[pl, nl] = weight
+            synfireconns.append(layerconn)
+    return synfireconns
 
 print("Preparing simulation ...")
 network = Network()
@@ -60,7 +65,7 @@ network.add(inhgroup)
 exc2inhconn, inh2excconn, inh2inhconn = connect_recurrent(excgroup, inhgroup)
 network.add(exc2inhconn, inh2excconn, inh2inhconn)
 exc2excconn = create_chains(excgroup)
-network.add(exc2excconn)
+network.add(*exc2excconn)
 
 print("Setting up monitors ...")
 excvmon = StateMonitor(excgroup, 'V', record=1)
