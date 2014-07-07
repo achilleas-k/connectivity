@@ -50,8 +50,9 @@ def create_synfire_inputs(excgroup, synfirenrns):
     inputs = []
     connections = []
     weight = 0.5*mV
+    weight = 2*mV
     for chain in synfirenrns:
-        chaininput = sl.tools.fast_synchronous_input_gen(100, 1*Hz, 1, 1*ms, duration)
+        chaininput = sl.tools.fast_synchronous_input_gen(100, 10*Hz, 1, 1*ms, duration)
         conn = Connection(chaininput, excgroup, state='gIn')
         firstlink = chain[0]
         for sfnrn in firstlink:
@@ -71,7 +72,7 @@ Vth = 20*mV
 tau = 20*ms
 C = 250*pF
 I = 350*pA
-I = 100*pA
+I = 240*pA
 Nexc = 4000
 Ninh = 1000
 tau_exc = 0.2*ms
@@ -97,8 +98,8 @@ inhgroup = NeuronGroup(Ninh, lifeq_inh, threshold="V>Vth", reset=Vrest,
                        refractory=2*ms)
 inhgroup.V = Vrest
 network.add(inhgroup)
-#recurrent_conns = connect_recurrent(excgroup, inhgroup)
-#network.add(*recurrent_conns)
+recurrent_conns = connect_recurrent(excgroup, inhgroup)
+network.add(*recurrent_conns)
 synfirenrns, exc2excconn = create_chains(excgroup)
 network.add(*exc2excconn)
 synfireinput, synfireinputconn = create_synfire_inputs(excgroup, synfirenrns)
@@ -107,7 +108,7 @@ network.add(*synfireinputconn)
 
 print("Setting up monitors ...")
 # record V of first link in first chain
-excvmon = StateMonitor(excgroup, 'V', record=synfirenrns[0][0])
+excvmon = StateMonitor(excgroup, 'V', record=synfirenrns[0].flatten())  # entire first chain
 excspikemon = SpikeMonitor(excgroup)
 #inhvmon = StateMonitor(inhgroup, 'V', record=True)
 inhspikemon = SpikeMonitor(inhgroup)
