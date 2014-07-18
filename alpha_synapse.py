@@ -2,10 +2,10 @@ from __future__ import print_function
 from brian import *
 from brian.library.synapses import *
 
-N = 10
+N = 2
 duration = 100*ms
 #tau_list = array([i*0.1*ms for i in range(1, N+1)])
-tau_list = repeat([0.2*ms, 0.6*ms], N/2)
+tau_list = [0.2*ms, 0.6*ms]
 network = Network()
 eqs = Equations("""
 dV/dt = (Ia-V)/(20*ms) : volt
@@ -25,10 +25,9 @@ synapse = SynapticEquations
 
 vmon = StateMonitor(nrns, 'V', record=True)
 inpmon = StateMonitor(nrns, 'Ia', record=True)
-weight_list = [((idx+1) % (N/2))*mV*10 for idx in range(N)]
+weight_list = [11*mV, 22.5*mV]
 for idx in range(N):
-    weight = weight_list[idx]
-    connection[0,idx] = weight
+    connection[0,idx] = weight_list[idx]
 network.add(nrns, inpspikes, connection, vmon, inpmon)
 
 network.run(duration)
