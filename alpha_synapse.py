@@ -6,6 +6,7 @@ N = 2
 duration = 100*ms
 #tau_list = array([i*0.1*ms for i in range(1, N+1)])
 tau_list = [0.2*ms, 0.6*ms]
+targets = [0.1*mV, 0.6*mV]
 network = Network()
 eqs = Equations("""
 dV/dt = (Ia-V)/(20*ms) : volt
@@ -36,7 +37,8 @@ for i in range(N):
     print("w: %f mV, p: %f mV" % (weight_list[i]*1000, max(vmon[i])*1000))
     colour = "r" if (i >= N/2) else "b"
     plot(vmon.times, vmon[i], label=tau_list[i], color=colour)
-plot([0*second, duration], [0.1*mV]*2, "b--")
-plot([0*second, duration], [0.6*mV]*2, "r--")
+plot([0*second, duration], [targets[0]]*2, "b--")
+plot([0*second, duration], [targets[1]]*2, "r--")
+axis(ymax=float(max(targets))*1.1)
 legend(loc="best")
 show()
