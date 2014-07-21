@@ -4,17 +4,19 @@ import spikerlib as sl
 
 
 def connect_recurrent(excgroup, inhgroup):
+    exc_weight = 10.5*mV  # 0.1 mV EPSP peak
+    inh_weight = -22.5*mV  # -0.6 mV EPSP peak
     print("Constructing excitatory to inhibitory connections ...")
     exc2inhconn = Connection(excgroup, inhgroup, state='gIn',
-                             delay=(0.5*ms, 3*ms), weight=0.1*mV,
+                             delay=(0.5*ms, 3*ms), weight=exc_weight,
                              sparseness=0.1)
     print("Constructing inhibitory recurrent connections ...")
     inh2inhconn = Connection(inhgroup, inhgroup, state='gIn',
-                             delay=(0.5*ms, 3*ms), weight=-0.6*mV,
+                             delay=(0.5*ms, 3*ms), weight=inh_weight,
                              sparseness=0.1)
     print("Constructing inhibitory to excitatory connections ...")
     inh2excconn = Connection(inhgroup, excgroup, state='gIn',
-                             delay=(0.5*ms, 3*ms), weight=-0.6*mV,
+                             delay=(0.5*ms, 3*ms), weight=inh_weight,
                              sparseness=0.1)
     return exc2inhconn, inh2excconn, inh2inhconn
 
@@ -26,7 +28,7 @@ def create_chains(excgroup):
     nlinks = 20
     width = 100
     width = 10
-    weight = 0.5*mV
+    weight = 52.5*mV  # 0.5 mV EPSP peak
     synfirechainids = []
     synfireconns = []
     for nc in range(nchains):
@@ -49,8 +51,7 @@ def create_synfire_inputs(excgroup, synfirenrns):
     print("Creating inputs for first link of each synfire chain ...")
     inputs = []
     connections = []
-    weight = 0.5*mV
-    weight = 2*mV
+    weight = 52.5*mV  # 0.5 mV EPSP peak
     for chain in synfirenrns:
         chaininput = sl.tools.fast_synchronous_input_gen(100, 10*Hz, 1, 1*ms, duration)
         conn = Connection(chaininput, excgroup, state='gIn')
