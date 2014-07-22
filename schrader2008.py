@@ -1,6 +1,8 @@
 from __future__ import print_function
+from __future__ import division
 from brian import *
 import spikerlib as sl
+import itertools as it
 
 
 def connect_recurrent(excgroup, inhgroup):
@@ -9,15 +11,15 @@ def connect_recurrent(excgroup, inhgroup):
     print("Constructing excitatory to inhibitory connections ...")
     exc2inhconn = Connection(excgroup, inhgroup, state='gIn',
                              delay=(0.5*ms, 3*ms), weight=exc_weight,
-                             sparseness=0.1)
+                             sparseness=0.05)
     print("Constructing inhibitory recurrent connections ...")
     inh2inhconn = Connection(inhgroup, inhgroup, state='gIn',
                              delay=(0.5*ms, 3*ms), weight=inh_weight,
-                             sparseness=0.1)
+                             sparseness=0.05)
     print("Constructing inhibitory to excitatory connections ...")
     inh2excconn = Connection(inhgroup, excgroup, state='gIn',
                              delay=(0.5*ms, 3*ms), weight=inh_weight,
-                             sparseness=0.1)
+                             sparseness=0.2)
     return exc2inhconn, inh2excconn, inh2inhconn
 
 def create_chains(excgroup):
@@ -62,6 +64,33 @@ def create_synfire_inputs(excgroup, synfirenrns):
         connections.append(conn)
     return inputs, connections
 
+def plotchains(synfirenrns, spikemon):
+    yheight = 0
+    colours = it.cycle(['b', 'g', 'r', 'c', 'm'])
+    for chain in synfirenrns:
+        for layer in chain:
+            c = colours.next()
+            for nrn in layer:
+                spikes = spikemon[nrn]
+                ypts = ones(len(spikes))*yheight
+                plot(spikes, ypts, c+'.')
+                yheight += 1
+        # chain separator
+        plot([0, float(duration)], [yheight, yheight], 'k--')
+
+def plotexcsorted(synfireidxes, spikemon):
+    sfidx = unique(synfireidxes)
+    notsfidx = delete(range(Nexc), sfidx)
+    plotseq = append(sfidx, notsfidx)
+    yheight = 0
+    for idx in plotseq:
+        spikes = spikemon[idx]
+        ypts = ones(len(spikes))*yheight
+        plot(spikes, ypts, 'b.')
+        yheight += 1
+    # sf - non-sf separator
+    plot([0, float(duration)], [len(sfidx)]*2, 'k--')
+
 
 print("Preparing simulation ...")
 network = Network()
@@ -73,7 +102,6 @@ Vth = 20*mV
 tau = 20*ms
 C = 250*pF
 I = 350*pA
-I = 240*pA
 Nexc = 4000
 Ninh = 1000
 tau_exc = 0.2*ms
@@ -125,8 +153,8 @@ if excspikemon.nspikes:
     excvmon.insert_spikes(excspikemon, Vth*2)
     avg_exc_rate = excspikemon.nspikes/duration/Nexc
     avg_inh_rate = inhspikemon.nspikes/duration/Ninh
-    avg_exc_rate_spikeonly = excspikemon.nspikes/count_nonzero(excrates)
-    avg_inh_rate_spikeonly = inhspikemon.nspikes/count_nonzero(inhrates)
+    avg_exc_rate_spikeonly = excspikemon.nspikes/duration/count_nonzero(excrates)
+    avg_inh_rate_spikeonly = inhspikemon.nspikes/duration/count_nonzero(inhrates)
     print("Average excitatory firing rate: %s" % (avg_exc_rate))
     print("Average inhibitory firing rate: %s" % (avg_inh_rate))
     print("Average excitatory firing rate (spiking cells only): %s" % (
@@ -137,9 +165,9 @@ if excspikemon.nspikes:
     spiking_nonsf_nrns = 0
     synfireidxes = [idx for idx in flatten(synfirenrns)]
     for idx in range(Nexc):
-        if idx in synfireidxes and not excrates[idx]:
+        if (idx in synfireidxes) and (not excrates[idx]):
             nonspiking_sf_nrns += 1
-        elif idx not in synfireidxes and excrates[idx]:
+        elif (idx not in synfireidxes) and (excrates[idx]):
             spiking_nonsf_nrns += 1
     print("%i neurons were in a synfire chain and did not spike" % (
         nonspiking_sf_nrns))
