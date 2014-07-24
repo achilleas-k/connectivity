@@ -146,6 +146,10 @@ network.add(excvmon, excspikemon, inhspikemon)
 print("Running simulation for %s ..." % (duration))
 network.run(duration, report="stdout")
 if excspikemon.nspikes:
+    # TODO: Move the printing of stats to a separate function
+    # TODO: Print chain stats: Average number of spikes per link, detailed
+    # number of spikes per link per chain, max propagation depth, average
+    # propagation depth
     excrates = [len(spikes)/duration
                 for spikes in excspikemon.spiketimes.itervalues()]
     inhrates = [len(spikes)/duration
