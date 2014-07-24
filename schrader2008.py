@@ -154,13 +154,13 @@ if excspikemon.nspikes:
     avg_exc_rate = excspikemon.nspikes/duration/Nexc
     avg_inh_rate = inhspikemon.nspikes/duration/Ninh
     print("Average excitatory firing rate: %s" % (avg_exc_rate))
-    print("Average inhibitory firing rate: %s" % (avg_inh_rate))
     if len(excrates) > count_nonzero(excrates):
         avg_exc_rate_spikeonly = excspikemon.nspikes/duration/count_nonzero(excrates)
         print("Average excitatory firing rate (spiking cells only): %s" % (
             avg_exc_rate_spikeonly))
     else:
         print("All excitatory cells fired.")
+    print("Average inhibitory firing rate: %s" % (avg_inh_rate))
     if len(inhrates) > count_nonzero(inhrates):
         avg_inh_rate_spikeonly = inhspikemon.nspikes/duration/count_nonzero(inhrates)
         print("Average inhibitory firing rate (spiking cells only): %s" % (
