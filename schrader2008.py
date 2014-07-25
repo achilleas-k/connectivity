@@ -91,6 +91,32 @@ def plotexcsorted(synfireidxes, spikemon):
     # sf - non-sf separator
     plot([0, float(duration)], [len(sfidx)]*2, 'k--')
 
+def calcrates(excspikemon, inhspikemon):
+    """
+    Calculate firing rates and averages and print some stats
+    """
+    excrates = [len(spikes)/duration
+                for spikes in excspikemon.spiketimes.itervalues()]
+    inhrates = [len(spikes)/duration
+                for spikes in inhspikemon.spiketimes.itervalues()]
+    avg_exc_rate = excspikemon.nspikes/duration/Nexc
+    avg_inh_rate = inhspikemon.nspikes/duration/Ninh
+    print("Average excitatory firing rate: %s" % (avg_exc_rate))
+    if len(excrates) > count_nonzero(excrates):
+        avg_exc_rate_spikeonly = excspikemon.nspikes/duration/count_nonzero(excrates)
+        print("Average excitatory firing rate (spiking cells only): %s" % (
+            avg_exc_rate_spikeonly))
+    else:
+        print("All excitatory cells fired.")
+    print("Average inhibitory firing rate: %s" % (avg_inh_rate))
+    if len(inhrates) > count_nonzero(inhrates):
+        avg_inh_rate_spikeonly = inhspikemon.nspikes/duration/count_nonzero(inhrates)
+        print("Average inhibitory firing rate (spiking cells only): %s" % (
+            avg_inh_rate_spikeonly))
+    else:
+        print("All inhibitory cells fired.")
+    return excrates, inhrates
+
 
 print("Preparing simulation ...")
 network = Network()
@@ -146,31 +172,12 @@ network.add(excvmon, excspikemon, inhspikemon)
 print("Running simulation for %s ..." % (duration))
 network.run(duration, report="stdout")
 if excspikemon.nspikes:
+    excvmon.insert_spikes(excspikemon, Vth*2)
     # TODO: Move the printing of stats to a separate function
     # TODO: Print chain stats: Average number of spikes per link, detailed
     # number of spikes per link per chain, max propagation depth, average
     # propagation depth
-    excrates = [len(spikes)/duration
-                for spikes in excspikemon.spiketimes.itervalues()]
-    inhrates = [len(spikes)/duration
-                for spikes in inhspikemon.spiketimes.itervalues()]
-    excvmon.insert_spikes(excspikemon, Vth*2)
-    avg_exc_rate = excspikemon.nspikes/duration/Nexc
-    avg_inh_rate = inhspikemon.nspikes/duration/Ninh
-    print("Average excitatory firing rate: %s" % (avg_exc_rate))
-    if len(excrates) > count_nonzero(excrates):
-        avg_exc_rate_spikeonly = excspikemon.nspikes/duration/count_nonzero(excrates)
-        print("Average excitatory firing rate (spiking cells only): %s" % (
-            avg_exc_rate_spikeonly))
-    else:
-        print("All excitatory cells fired.")
-    print("Average inhibitory firing rate: %s" % (avg_inh_rate))
-    if len(inhrates) > count_nonzero(inhrates):
-        avg_inh_rate_spikeonly = inhspikemon.nspikes/duration/count_nonzero(inhrates)
-        print("Average inhibitory firing rate (spiking cells only): %s" % (
-            avg_inh_rate_spikeonly))
-    else:
-        print("All inhibitory cells fired.")
+    excrates, inhrates = calcrates(excspikemon, inhspikemon)
     nonspiking_sf_nrns = 0
     spiking_nonsf_nrns = 0
     synfireidxes = [idx for idx in flatten(synfirenrns)]
