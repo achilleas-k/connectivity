@@ -93,29 +93,46 @@ def plotexcsorted(synfireidxes, spikemon):
 
 def calcrates(excspikemon, inhspikemon):
     """
-    Calculate firing rates and averages and print some stats
+    Return list of firing rate of each cell
     """
     excrates = [len(spikes)/duration
                 for spikes in excspikemon.spiketimes.itervalues()]
     inhrates = [len(spikes)/duration
                 for spikes in inhspikemon.spiketimes.itervalues()]
-    avg_exc_rate = excspikemon.nspikes/duration/Nexc
-    avg_inh_rate = inhspikemon.nspikes/duration/Ninh
+    return excrates, inhrates
+
+def printstats(excrates, inhrates, synfirenrns):
+    """
+    Print spiking stats
+    """
+    avg_exc_rate = mean(excrates)
+    avg_inh_rate = mean(inhrates)
     print("Average excitatory firing rate: %s" % (avg_exc_rate))
     if len(excrates) > count_nonzero(excrates):
-        avg_exc_rate_spikeonly = excspikemon.nspikes/duration/count_nonzero(excrates)
+        avg_exc_rate_spikeonly = sum(excrates)/count_nonzero(excrates)
         print("Average excitatory firing rate (spiking cells only): %s" % (
             avg_exc_rate_spikeonly))
     else:
         print("All excitatory cells fired.")
     print("Average inhibitory firing rate: %s" % (avg_inh_rate))
     if len(inhrates) > count_nonzero(inhrates):
-        avg_inh_rate_spikeonly = inhspikemon.nspikes/duration/count_nonzero(inhrates)
+        avg_inh_rate_spikeonly = sum(inhrates)/count_nonzero(inhrates)
         print("Average inhibitory firing rate (spiking cells only): %s" % (
             avg_inh_rate_spikeonly))
     else:
         print("All inhibitory cells fired.")
-    return excrates, inhrates
+    nonspiking_sf_nrns = 0
+    spiking_nonsf_nrns = 0
+    synfireidxes = [idx for idx in flatten(synfirenrns)]
+    for idx in range(Nexc):
+        if (idx in synfireidxes) and (not excrates[idx]):
+            nonspiking_sf_nrns += 1
+        elif (idx not in synfireidxes) and (excrates[idx]):
+            spiking_nonsf_nrns += 1
+    print("%i neurons were in a synfire chain and did not spike" % (
+        nonspiking_sf_nrns))
+    print("%i neurons were not in a synfire chain and spiked" % (
+        spiking_nonsf_nrns))
 
 
 print("Preparing simulation ...")
@@ -178,18 +195,7 @@ if excspikemon.nspikes:
     # number of spikes per link per chain, max propagation depth, average
     # propagation depth
     excrates, inhrates = calcrates(excspikemon, inhspikemon)
-    nonspiking_sf_nrns = 0
-    spiking_nonsf_nrns = 0
-    synfireidxes = [idx for idx in flatten(synfirenrns)]
-    for idx in range(Nexc):
-        if (idx in synfireidxes) and (not excrates[idx]):
-            nonspiking_sf_nrns += 1
-        elif (idx not in synfireidxes) and (excrates[idx]):
-            spiking_nonsf_nrns += 1
-    print("%i neurons were in a synfire chain and did not spike" % (
-        nonspiking_sf_nrns))
-    print("%i neurons were not in a synfire chain and spiked" % (
-        spiking_nonsf_nrns))
+    printstats(excrates, inhrates, synfirenrns)
     print("done.\nPlotting ...")
     t = arange(0*ms, duration, dt)
     figure()
