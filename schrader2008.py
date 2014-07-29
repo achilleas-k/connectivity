@@ -3,6 +3,7 @@ from __future__ import division
 from brian import *
 import spikerlib as sl
 import itertools as it
+import random as rnd
 
 
 def connect_recurrent(excgroup, inhgroup):
@@ -23,7 +24,6 @@ def connect_recurrent(excgroup, inhgroup):
     return exc2inhconn, inh2excconn, inh2inhconn
 
 def create_chains(excgroup):
-    import random as rnd
     print("Creating synfire chains ...")
     nchains = 50
     nchains = 10
@@ -101,6 +101,18 @@ def calcrates(excspikemon, inhspikemon):
                 for spikes in inhspikemon.spiketimes.itervalues()]
     return excrates, inhrates
 
+def calcdepthstats(excspikemon, synfirenrns):
+    chainspikes = []
+    for chain in synfirenrns:
+        layerspikes = []
+        for layer in chain:
+            nspikeslayer = sum(len(excspikemon[idx])
+                               for idx
+                               in layer)
+            layerspikes.append(nspikeslayer)
+        chainspikes.append(layerspikes)
+    return chainspikes
+
 def printstats(excrates, inhrates, synfirenrns):
     """
     Print spiking stats
@@ -123,11 +135,11 @@ def printstats(excrates, inhrates, synfirenrns):
         print("All inhibitory cells fired.")
     nonspiking_sf_nrns = 0
     spiking_nonsf_nrns = 0
-    synfireidxes = [idx for idx in flatten(synfirenrns)]
+    synfireidx_flat = [idx for idx in flatten(synfirenrns)]
     for idx in range(Nexc):
-        if (idx in synfireidxes) and (not excrates[idx]):
+        if (idx in synfireidx_flat) and (not excrates[idx]):
             nonspiking_sf_nrns += 1
-        elif (idx not in synfireidxes) and (excrates[idx]):
+        elif (idx not in synfireidx_flat) and (excrates[idx]):
             spiking_nonsf_nrns += 1
     print("%i neurons were in a synfire chain and did not spike" % (
         nonspiking_sf_nrns))
@@ -180,22 +192,26 @@ network.add(*synfireinputconn)
 
 print("Setting up monitors ...")
 # record V of first link in first chain
-excvmon = StateMonitor(excgroup, 'V', record=synfirenrns[0].flatten())  # entire first chain
+synfirevmon = StateMonitor(excgroup, 'V', record=synfirenrns[0].flatten())
+# record a few random cells as well
+recsample = rnd.sample(range(Nexc), 20)
+excvmon = StateMonitor(excgroup, 'V', record=recsample)
 excspikemon = SpikeMonitor(excgroup)
 #inhvmon = StateMonitor(inhgroup, 'V', record=True)
 inhspikemon = SpikeMonitor(inhgroup)
-network.add(excvmon, excspikemon, inhspikemon)
+network.add(excvmon, synfirevmon, excspikemon, inhspikemon)
 
 print("Running simulation for %s ..." % (duration))
 network.run(duration, report="stdout")
 if excspikemon.nspikes:
+    synfirevmon.insert_spikes(excspikemon, Vth*2)
     excvmon.insert_spikes(excspikemon, Vth*2)
-    # TODO: Move the printing of stats to a separate function
     # TODO: Print chain stats: Average number of spikes per link, detailed
     # number of spikes per link per chain, max propagation depth, average
     # propagation depth
     excrates, inhrates = calcrates(excspikemon, inhspikemon)
     printstats(excrates, inhrates, synfirenrns)
+    depthstats = calcdepthstats(excspikemon, synfirenrns)
     print("done.\nPlotting ...")
     t = arange(0*ms, duration, dt)
     figure()
