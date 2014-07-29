@@ -113,6 +113,26 @@ def calcdepthstats(excspikemon, synfirenrns):
         chainspikes.append(layerspikes)
     return chainspikes
 
+def calcslopes(vmon, spikemon):
+    """
+    Calculate slopes (non normalised, for now)
+    TODO: Calculate normalised slopes
+
+    Returns average slopes (per cell) and individual slope values (flattened)
+    """
+    allslopes = []
+    avgslopes = []
+    for idx in vmon.recordindex.iterkeys():
+        if len(spikemon[idx]) == 0:
+            continue
+        spikeidx = array(spikemon[idx]/dt).astype('int')
+        slopestart = spikeidx-int(w/dt)
+        slopes = (Vth-vmon[idx][slopestart])/w
+        allslopes.extend(slopes)
+        avgslopes.append(mean(slopes))
+    return avgslopes, allslopes
+
+
 def printstats(excrates, chainspikes, inhrates, synfirenrns):
     """
     Print spiking stats
@@ -199,9 +219,11 @@ network.add(*synfireinputconn)
 
 print("Setting up monitors ...")
 # record V of first link in first chain
-synfirevmon = StateMonitor(excgroup, 'V', record=synfirenrns[0].flatten())
-# record a few random cells as well
+recsynfire = synfirenrns[0].flatten()
+synfirevmon = StateMonitor(excgroup, 'V', record=recsynfire)
+# record a few random cells as well (make sure they're not in sf chains)
 recsample = rnd.sample(range(Nexc), 20)
+recsample = delete(recsample, recsynfire)
 excvmon = StateMonitor(excgroup, 'V', record=recsample)
 excspikemon = SpikeMonitor(excgroup)
 #inhvmon = StateMonitor(inhgroup, 'V', record=True)
@@ -213,21 +235,21 @@ network.run(duration, report="stdout")
 if excspikemon.nspikes:
     synfirevmon.insert_spikes(excspikemon, Vth*2)
     excvmon.insert_spikes(excspikemon, Vth*2)
-    # TODO: Print chain stats: Average number of spikes per link, detailed
-    # number of spikes per link per chain, max propagation depth, average
-    # propagation depth
     excrates, inhrates = calcrates(excspikemon, inhspikemon)
     chainspikes = calcdepthstats(excspikemon, synfirenrns)
     printstats(excrates, chainspikes, inhrates, synfirenrns)
-    print("done.\nPlotting ...")
-    t = arange(0*ms, duration, dt)
-    figure()
-    subplot(2,1,1)
-    raster_plot(excspikemon)
-    title("Excitatory population")
-    subplot(2,1,2)
-    raster_plot(inhspikemon)
-    title("Inhibitory population")
-    show()
+    print("Calculating slope distributions ...")
+    synfire_slopes = calcslopes(synfirevmon, excspikemon)
+    nonsf_slopes = calcslopes(excvmon, excspikemon)
+    #print("done.\nPlotting ...")
+    #t = arange(0*ms, duration, dt)
+    #figure()
+    #subplot(2,1,1)
+    #raster_plot(excspikemon)
+    #title("Excitatory population")
+    #subplot(2,1,2)
+    #raster_plot(inhspikemon)
+    #title("Inhibitory population")
+    #show()
 else:
     print("No spikes were fired.")
