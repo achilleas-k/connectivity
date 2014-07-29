@@ -113,7 +113,7 @@ def calcdepthstats(excspikemon, synfirenrns):
         chainspikes.append(layerspikes)
     return chainspikes
 
-def printstats(excrates, inhrates, synfirenrns):
+def printstats(excrates, chainspikes, inhrates, synfirenrns):
     """
     Print spiking stats
     """
@@ -145,6 +145,13 @@ def printstats(excrates, inhrates, synfirenrns):
         nonspiking_sf_nrns))
     print("%i neurons were not in a synfire chain and spiked" % (
         spiking_nonsf_nrns))
+    mean_chainspikes = mean(chainspikes, axis=0)
+    maxdepth = flatnonzero(mean_chainspikes)[-1]+1
+    meandepth = mean([flatnonzero(array(cs))[-1]+1 for cs in chainspikes])
+    print("The longest chain propagation depth was %i (max %i)" % (
+        maxdepth, len(chainspikes[0])))
+    print("The average chain propagation depth was %f (max %i)" % (
+        meandepth, len(chainspikes[0])))
 
 
 print("Preparing simulation ...")
@@ -210,8 +217,8 @@ if excspikemon.nspikes:
     # number of spikes per link per chain, max propagation depth, average
     # propagation depth
     excrates, inhrates = calcrates(excspikemon, inhspikemon)
-    printstats(excrates, inhrates, synfirenrns)
-    depthstats = calcdepthstats(excspikemon, synfirenrns)
+    chainspikes = calcdepthstats(excspikemon, synfirenrns)
+    printstats(excrates, chainspikes, inhrates, synfirenrns)
     print("done.\nPlotting ...")
     t = arange(0*ms, duration, dt)
     figure()
