@@ -132,7 +132,6 @@ def calcslopes(vmon, spikemon):
         avgslopes.append(mean(slopes))
     return avgslopes, allslopes
 
-
 def printstats(excrates, chainspikes, inhrates, synfirenrns):
     """
     Print spiking stats
@@ -222,7 +221,7 @@ print("Setting up monitors ...")
 recsynfire = synfirenrns[0].flatten()
 synfirevmon = StateMonitor(excgroup, 'V', record=recsynfire)
 # record a few random cells as well (make sure they're not in sf chains)
-recsample = rnd.sample(range(Nexc), 20)
+recsample = rnd.sample(range(Nexc), 100)
 recsample = delete(recsample, recsynfire)
 excvmon = StateMonitor(excgroup, 'V', record=recsample)
 excspikemon = SpikeMonitor(excgroup)
