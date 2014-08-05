@@ -12,7 +12,7 @@ def connect_recurrent(excgroup, inhgroup):
     print("Constructing excitatory to inhibitory connections ...")
     exc2inhconn = Connection(excgroup, inhgroup, state='gIn',
                              delay=(0.5*ms, 3*ms), weight=exc_weight,
-                             sparseness=0.9)
+                             sparseness=0.4)
     print("Constructing inhibitory recurrent connections ...")
     inh2inhconn = Connection(inhgroup, inhgroup, state='gIn',
                              delay=(0.5*ms, 3*ms), weight=inh_weight,
@@ -20,7 +20,7 @@ def connect_recurrent(excgroup, inhgroup):
     print("Constructing inhibitory to excitatory connections ...")
     inh2excconn = Connection(inhgroup, excgroup, state='gIn',
                              delay=(0.5*ms, 3*ms), weight=inh_weight,
-                             sparseness=1.0)
+                             sparseness=0.4)
     return exc2inhconn, inh2excconn, inh2inhconn
 
 def create_chains(excgroup):
@@ -131,6 +131,24 @@ def calcslopes(vmon, spikemon):
         allslopes.extend(slopes)
         avgslopes.append(mean(slopes))
     return avgslopes, allslopes
+
+def collectinputs(idx, group, *connections):
+    """
+    Collects the indices of all neurons that provide input for neuron `idx`
+    in the neuron group `source_group`. Any number of Connection objects may
+    be provided. The function returns a list of lists, where each list
+    represents the indices of neurons that drive the target neuron from a
+    specific source. The order of the sources is the same as they appear in the
+    argument list of the function for `*connections`.
+    """
+    inputs = []
+    for conn in connections:
+        if conn.target is group:
+            inputs.append(conn.W.coli[idx].tolist())
+        else:
+            inputs.append([])
+    return inputs
+
 
 def printstats(excrates, chainspikes, inhrates, synfirenrns):
     """
