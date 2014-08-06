@@ -9,19 +9,23 @@ import random as rnd
 def connect_recurrent(excgroup, inhgroup):
     exc_weight = 10.5*mV  # 0.1 mV EPSP peak
     inh_weight = -22.5*mV  # -0.6 mV IPSP peak
+    print("Constructing excitatory to excitatory connections ...")
+    exexconn = Connection(excgroup, excgroup, state='gIn',
+                             delay=(0.5*ms, 3*ms), weight=exc_weight,
+                             spareseness=0.001)
     print("Constructing excitatory to inhibitory connections ...")
-    exc2inhconn = Connection(excgroup, inhgroup, state='gIn',
+    exinconn = Connection(excgroup, inhgroup, state='gIn',
                              delay=(0.5*ms, 3*ms), weight=exc_weight,
                              sparseness=0.4)
     print("Constructing inhibitory recurrent connections ...")
-    inh2inhconn = Connection(inhgroup, inhgroup, state='gIn',
+    ininconn = Connection(inhgroup, inhgroup, state='gIn',
                              delay=(0.5*ms, 3*ms), weight=inh_weight,
                              sparseness=0.5)
     print("Constructing inhibitory to excitatory connections ...")
-    inh2excconn = Connection(inhgroup, excgroup, state='gIn',
+    inexconn = Connection(inhgroup, excgroup, state='gIn',
                              delay=(0.5*ms, 3*ms), weight=inh_weight,
                              sparseness=0.4)
-    return exc2inhconn, inh2excconn, inh2inhconn
+    return exexconn, exinconn, inexconn, ininconn
 
 def create_chains(excgroup):
     print("Creating synfire chains ...")
