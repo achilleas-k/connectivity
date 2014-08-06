@@ -170,18 +170,22 @@ def printstats(excrates, chainspikes, inhrates, synfirenrns):
             avg_inh_rate_spikeonly))
     else:
         print("All inhibitory cells fired.")
-    nonspiking_sf_nrns = 0
+    spiking_sf_nrns = 0
     spiking_nonsf_nrns = 0
-    synfireidx_flat = [idx for idx in flatten(synfirenrns)]
+    synfireidx_flat = unique(flatten(synfirenrns))
+    Nsf = len(synfireidx_flat)
     for idx in range(Nexc):
-        if (idx in synfireidx_flat) and (not excrates[idx]):
-            nonspiking_sf_nrns += 1
-        elif (idx not in synfireidx_flat) and (excrates[idx]):
+        if (idx in synfireidx_flat) and (excrates[idx] > 0):
+            spiking_sf_nrns += 1
+        elif (idx not in synfireidx_flat) and (excrates[idx] > 0):
             spiking_nonsf_nrns += 1
-    print("%i neurons were in a synfire chain and did not spike" % (
-        nonspiking_sf_nrns))
-    print("%i neurons were not in a synfire chain and spiked" % (
-        spiking_nonsf_nrns))
+    print("Number of neurons which spiked")
+    print("Synfire chain:      %4i/%4i" % (spiking_sf_nrns, Nsf))
+    print("Non synfire chain:  %4i/%4i" % (spiking_nonsf_nrns, Nexc-Nsf))
+    print("Excitatory (total): %4i/%4i" % (count_nonzero(excrates),
+                                           len(excrates)))
+    print("Inhibitory:         %4i/%4i" % (count_nonzero(inhrates),
+                                           len(inhrates)))
     mean_chainspikes = mean(chainspikes, axis=0)
     maxdepth = flatnonzero(mean_chainspikes)[-1]+1
     meandepth = mean([flatnonzero(array(cs))[-1]+1 for cs in chainspikes])
@@ -200,7 +204,7 @@ Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
 C = 250*pF
-I = 350*pA
+I = 250*pA
 Nexc = 4000
 Ninh = 1000
 tau_exc = 0.2*ms
@@ -227,10 +231,10 @@ inhgroup = NeuronGroup(Ninh, lifeq_inh, threshold="V>Vth", reset=Vrest,
 inhgroup.V = Vrest
 network.add(inhgroup)
 recurrent_conns = connect_recurrent(excgroup, inhgroup)
-network.add(*recurrent_conns)
 synfirenrns, exc2excconn = create_chains(excgroup)
-network.add(*exc2excconn)
 synfireinput, synfireinputconn = create_synfire_inputs(excgroup, synfirenrns)
+network.add(*recurrent_conns)
+network.add(*exc2excconn)
 network.add(*synfireinput)
 network.add(*synfireinputconn)
 
