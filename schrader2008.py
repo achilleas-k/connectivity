@@ -204,21 +204,22 @@ Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
 C = 250*pF
-I = 250*pA
+Iexc = 0*pA
+Iinh = 250*pA
 Nexc = 4000
 Ninh = 1000
 tau_exc = 0.2*ms
 tau_inh = 0.6*ms
 lifeq_exc = Equations("""
-dV/dt = (a-Vrest-V)/tau+I/C : volt
-da/dt = (gIn-a)/tau_exc : volt
-dgIn/dt = -gIn/tau_exc : volt
-""")
+                      dV/dt = (a-Vrest-V)/tau+Iexc/C : volt
+                      da/dt = (gIn-a)/tau_exc : volt
+                      dgIn/dt = -gIn/tau_exc : volt
+                      """)
 lifeq_inh = Equations("""
-dV/dt = (a-Vrest-V)/tau+I/C : volt
-da/dt = (gIn-a)/tau_inh : volt
-dgIn/dt = -gIn/tau_inh : volt
-""")
+                      dV/dt = (a-Vrest-V)/tau+Iinh/C : volt
+                      da/dt = (gIn-a)/tau_inh : volt
+                      dgIn/dt = -gIn/tau_inh : volt
+                      """)
 # I/C = 1.4 volt/second
 lifeq_exc.prepare()
 lifeq_inh.prepare()
