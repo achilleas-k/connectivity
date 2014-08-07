@@ -98,6 +98,10 @@ Vth = 20*mV
 tau = 20*ms
 C = 250*pF
 Nexc = 4
+Nin = 2000
+fin = 10*Hz
+Sin = 0.4
+sigma = 0*ms
 tau_exc = 0.2*ms
 tau_inh = 0.6*ms
 lifeq_exc = Equations("""
@@ -106,14 +110,16 @@ lifeq_exc = Equations("""
                       dgIn/dt = -gIn/tau_exc : volt
                       """)
 lifeq_exc.prepare()
-excgroup = NeuronGroup(Nexc, lifeq_exc, threshold="V>Vth", reset=Vrest,
+nrngroup = NeuronGroup(Nexc, lifeq_exc, threshold="V>Vth", reset=Vrest,
                        refractory=2*ms)
-excgroup.V = Vrest
+nrngroup.V = Vrest
+inpgroup = sl.tools.fast_synchronous_input_gen(Nin, fin, Sin, sigma, duration)
+network.add(nrngroup, inpgroup)
 
 print("Setting up monitors ...")
 # record a few random cells as well (make sure they're not in sf chains)
-vmon = StateMonitor(excgroup, 'V', record=True)
-spikemon = SpikeMonitor(excgroup)
+vmon = StateMonitor(nrngroup, 'V', record=True)
+spikemon = SpikeMonitor(nrngroup)
 inpmon = SpikeMonitor(inpgroup)
 network.add(inpmon, vmon, spikemon)
 
