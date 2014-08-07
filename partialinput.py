@@ -98,12 +98,14 @@ Vth = 20*mV
 tau = 20*ms
 C = 250*pF
 Nexc = 4
-Nin = 2000
+Nin = 5000
 fin = 10*Hz
 Sin = 0.4
 sigma = 0*ms
+weight = 0.01*mV
 tau_exc = 0.2*ms
 tau_inh = 0.6*ms
+Nconn = int(0.8*Nin)  # number of connections each cell receives
 lifeq_exc = Equations("""
                       dV/dt = (a-Vrest-V)/tau : volt
                       da/dt = (gIn-a)/tau_exc : volt
@@ -115,6 +117,13 @@ nrngroup = NeuronGroup(Nexc, lifeq_exc, threshold="V>Vth", reset=Vrest,
 nrngroup.V = Vrest
 inpgroup = sl.tools.fast_synchronous_input_gen(Nin, fin, Sin, sigma, duration)
 network.add(nrngroup, inpgroup)
+# connect random subset of inputs to each cell
+inpconn = Connection(inpgroup, nrngroup, 'V')
+for nrn in range(Nexc):
+    inputids = np.random.choice(range(Nin), Nconn, replace=False)
+    for inp in inputids:
+        inpconn[inp, nrn] = weight
+network.add(inpconn)
 
 print("Setting up monitors ...")
 # record a few random cells as well (make sure they're not in sf chains)
@@ -126,13 +135,7 @@ network.add(inpmon, vmon, spikemon)
 print("Running simulation for %s ..." % (duration))
 network.run(duration, report="stdout")
 if spikemon.nspikes:
-    synfirevmon.insert_spikes(excspikemon, Vth*2)
-    excvmon.insert_spikes(excspikemon, Vth*2)
-    excrates, inhrates = calcrates(excspikemon, inhspikemon)
-    chainspikes = calcdepthstats(excspikemon, synfirenrns)
-    printstats(excrates, chainspikes, inhrates, synfirenrns)
-    print("Calculating slope distributions ...")
-    synfire_slopes = calcslopes(synfirevmon, excspikemon)
-    nonsf_slopes = calcslopes(excvmon, excspikemon)
+    vmon.insert_spikes(spikemon, Vth*2)
+    #printstats(excrates, chainspikes, inhrates, synfirenrns)
 else:
     print("No spikes were fired.")
