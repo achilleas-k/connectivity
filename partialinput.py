@@ -100,7 +100,7 @@ C = 250*pF
 Nexc = 4
 Nin = 5000
 fin = 10*Hz
-Sin = 0.4
+Sin = 0.7
 sigma = 0*ms
 weight = 0.01*mV
 tau_exc = 0.2*ms
@@ -136,6 +136,18 @@ print("Running simulation for %s ..." % (duration))
 network.run(duration, report="stdout")
 if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
+    figure("Spikes")
+    suptitle("Spike trains")
+    subplot(2,1,1)
+    title("Input")
+    raster_plot(inpmon)
+    subplot(2,1,2)
+    title("Neurons")
+    raster_plot(spikemon)
+    figure("Voltages")
+    title("Membrane potential traces")
+    vmon.plot()
+    legend()
     #printstats(excrates, chainspikes, inhrates, synfirenrns)
 else:
     print("No spikes were fired.")
