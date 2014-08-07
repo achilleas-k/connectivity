@@ -100,12 +100,12 @@ C = 250*pF
 Nexc = 4
 Nin = 5000
 fin = 10*Hz
-Sin = 0.7
+Sin = 0.5
 sigma = 0*ms
 weight = 0.01*mV
 tau_exc = 0.2*ms
 tau_inh = 0.6*ms
-Nconn = int(0.8*Nin)  # number of connections each cell receives
+Nconn = int(0.5*Nin)  # number of connections each cell receives
 lifeq_exc = Equations("""
                       dV/dt = (a-Vrest-V)/tau : volt
                       da/dt = (gIn-a)/tau_exc : volt
@@ -115,9 +115,11 @@ lifeq_exc.prepare()
 nrngroup = NeuronGroup(Nexc, lifeq_exc, threshold="V>Vth", reset=Vrest,
                        refractory=2*ms)
 nrngroup.V = Vrest
+print("Setting up inputs ...")
 inpgroup = sl.tools.fast_synchronous_input_gen(Nin, fin, Sin, sigma, duration)
 network.add(nrngroup, inpgroup)
 # connect random subset of inputs to each cell
+print("Connecting inputs ...")
 inpconn = Connection(inpgroup, nrngroup, 'V')
 for nrn in range(Nexc):
     inputids = np.random.choice(range(Nin), Nconn, replace=False)
@@ -148,6 +150,8 @@ if spikemon.nspikes:
     title("Membrane potential traces")
     vmon.plot()
     legend()
+    ion()
+    show()
     #printstats(excrates, chainspikes, inhrates, synfirenrns)
 else:
     print("No spikes were fired.")
