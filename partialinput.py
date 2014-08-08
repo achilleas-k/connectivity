@@ -2,8 +2,6 @@ from __future__ import print_function
 from __future__ import division
 from brian import *
 import spikerlib as sl
-import itertools as it
-import random as rnd
 
 
 def calcslopes(vmon, spikemon):
@@ -96,16 +94,15 @@ w = 2*ms
 Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
-C = 250*pF
 Nexc = 4
-Nin = 5000
+Ningroups = 5
+Nin = 10000
 fin = 10*Hz
 Sin = 0.5
 sigma = 0*ms
 weight = 0.01*mV
 tau_exc = 0.2*ms
-tau_inh = 0.6*ms
-Nconn = int(0.5*Nin)  # number of connections each cell receives
+Nconn = int(0.1*Nin)  # number of connections each cell receives
 lifeq_exc = Equations("""
                       dV/dt = (a-Vrest-V)/tau : volt
                       da/dt = (gIn-a)/tau_exc : volt
@@ -115,24 +112,32 @@ lifeq_exc.prepare()
 nrngroup = NeuronGroup(Nexc, lifeq_exc, threshold="V>Vth", reset=Vrest,
                        refractory=2*ms)
 nrngroup.V = Vrest
-print("Setting up inputs ...")
-inpgroup = sl.tools.fast_synchronous_input_gen(Nin, fin, Sin, sigma, duration)
-network.add(nrngroup, inpgroup)
-# connect random subset of inputs to each cell
-print("Connecting inputs ...")
-inpconn = Connection(inpgroup, nrngroup, 'V')
-for nrn in range(Nexc):
-    inputids = np.random.choice(range(Nin), Nconn, replace=False)
-    for inp in inputids:
-        inpconn[inp, nrn] = weight
-network.add(inpconn)
+network.add(nrngroup)
+print("Setting up inputs and connections ...")
+ingroups = []
+inpconns = []
+for ing in range(Ningroups):
+    ingroup = sl.tools.fast_synchronous_input_gen(Nin, fin,
+                                                  Sin, sigma, duration)
+    inpconn = Connection(ingroup, nrngroup, 'V')
+    # connect random subset of inputs to each cell
+    for nrn in range(Nexc):
+        inputids = np.random.choice(range(Nin), Nconn, replace=False)
+        for inp in inputids:
+            inpconn[inp, nrn] = weight
+    ingroups.append(ingroup)
+    inpconns.append(inpconn)
+network.add(*ingroups)
+network.add(*inpconns)
 
 print("Setting up monitors ...")
 # record a few random cells as well (make sure they're not in sf chains)
+inpmons = [SpikeMonitor(ing) for ing in ingroups]
+network.add(*inpmons)
 vmon = StateMonitor(nrngroup, 'V', record=True)
+network.add(vmon)
 spikemon = SpikeMonitor(nrngroup)
-inpmon = SpikeMonitor(inpgroup)
-network.add(inpmon, vmon, spikemon)
+network.add(spikemon)
 
 print("Running simulation for %s ..." % (duration))
 network.run(duration, report="stdout")
@@ -142,7 +147,7 @@ if spikemon.nspikes:
     suptitle("Spike trains")
     subplot(2,1,1)
     title("Input")
-    raster_plot(inpmon)
+    raster_plot(*inpmons)
     subplot(2,1,2)
     title("Neurons")
     raster_plot(spikemon)
