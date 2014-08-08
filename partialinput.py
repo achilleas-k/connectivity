@@ -116,6 +116,7 @@ print("Running simulation for %s ..." % (duration))
 network.run(duration, report="stdout")
 if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
+    printstats(vmon, spikemon)
 figure("Spikes")
 suptitle("Spike trains")
 subplot(2,1,1)
