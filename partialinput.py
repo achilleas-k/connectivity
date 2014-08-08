@@ -96,7 +96,7 @@ Vth = 20*mV
 tau = 20*ms
 Nexc = 4
 Ningroups = 5
-Nin = 10000
+Nin = 1000
 fin = 10*Hz
 Sin = 0.5
 sigma = 0*ms
@@ -143,20 +143,18 @@ print("Running simulation for %s ..." % (duration))
 network.run(duration, report="stdout")
 if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
-    figure("Spikes")
-    suptitle("Spike trains")
-    subplot(2,1,1)
-    title("Input")
-    raster_plot(*inpmons)
-    subplot(2,1,2)
-    title("Neurons")
-    raster_plot(spikemon)
-    figure("Voltages")
-    title("Membrane potential traces")
-    vmon.plot()
-    legend()
-    ion()
-    show()
-    #printstats(excrates, chainspikes, inhrates, synfirenrns)
-else:
-    print("No spikes were fired.")
+figure("Spikes")
+suptitle("Spike trains")
+subplot(2,1,1)
+title("Input")
+raster_plot(*inpmons)
+subplot(2,1,2)
+title("Neurons")
+raster_plot(spikemon)
+figure("Voltages")
+title("Membrane potential traces")
+vmon.plot()
+legend()
+ion()
+show()
+#printstats(excrates, chainspikes, inhrates, synfirenrns)
