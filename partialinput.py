@@ -26,7 +26,7 @@ def calcslopes(vmon, spikemon):
 def collectinputs(idx, group, *connections):
     """
     Collects the indices of all neurons that provide input for neuron `idx`
-    in the neuron group `source_group`. Any number of Connection objects may
+    in the neuron group `group`. Any number of Connection objects may
     be provided. The function returns a list of lists, where each list
     represents the indices of neurons that drive the target neuron from a
     specific source. The order of the sources is the same as they appear in the
@@ -41,50 +41,23 @@ def collectinputs(idx, group, *connections):
     return inputs
 
 
-def printstats(excrates, chainspikes, inhrates, synfirenrns):
+def printstats(vmon, spikemon):
     """
     Print spiking stats
     """
-    avg_exc_rate = mean(excrates)
-    avg_inh_rate = mean(inhrates)
-    print("Average excitatory firing rate: %s" % (avg_exc_rate))
-    if len(excrates) > count_nonzero(excrates):
-        avg_exc_rate_spikeonly = sum(excrates)/count_nonzero(excrates)
-        print("Average excitatory firing rate (spiking cells only): %s" % (
-            avg_exc_rate_spikeonly))
-    else:
-        print("All excitatory cells fired.")
-    print("Average inhibitory firing rate: %s" % (avg_inh_rate))
-    if len(inhrates) > count_nonzero(inhrates):
-        avg_inh_rate_spikeonly = sum(inhrates)/count_nonzero(inhrates)
-        print("Average inhibitory firing rate (spiking cells only): %s" % (
-            avg_inh_rate_spikeonly))
-    else:
-        print("All inhibitory cells fired.")
-    spiking_sf_nrns = 0
-    spiking_nonsf_nrns = 0
-    synfireidx_flat = unique(flatten(synfirenrns))
-    Nsf = len(synfireidx_flat)
-    for idx in range(Nexc):
-        if (idx in synfireidx_flat) and (excrates[idx] > 0):
-            spiking_sf_nrns += 1
-        elif (idx not in synfireidx_flat) and (excrates[idx] > 0):
-            spiking_nonsf_nrns += 1
-    print("Number of neurons which spiked")
-    print("Synfire chain:      %4i/%4i" % (spiking_sf_nrns, Nsf))
-    print("Non synfire chain:  %4i/%4i" % (spiking_nonsf_nrns, Nexc-Nsf))
-    print("Excitatory (total): %4i/%4i" % (count_nonzero(excrates),
-                                           len(excrates)))
-    print("Inhibitory:         %4i/%4i" % (count_nonzero(inhrates),
-                                           len(inhrates)))
-    mean_chainspikes = mean(chainspikes, axis=0)
-    maxdepth = flatnonzero(mean_chainspikes)[-1]+1
-    meandepth = mean([flatnonzero(array(cs))[-1]+1 for cs in chainspikes])
-    print("The longest chain propagation depth was %i (max %i)" % (
-        maxdepth, len(chainspikes[0])))
-    print("The average chain propagation depth was %f (max %i)" % (
-        meandepth, len(chainspikes[0])))
-
+    spiketrains = spikemon.spiketimes.values()
+    spikecounts = [len(sp) for sp in spiketrains]
+    spikerates = [sp/duration for sp in spikecounts]
+    avgrate = mean(spikerates)
+    xcorrs = sl.metrics.corrcoef.corrcoef_spiketrains(spiketrains)
+    print("Spike rates: ")
+    for idx, sr in enumerate(spikerates):
+        print("%3i:\t%0.2f Hz" % (idx, sr))
+    print("Avg:\t%0.2f Hz" % (avgrate))
+    print("\nSpike train correlations")
+    print("\t"+"\t".join("%4i" % i for i in range(len(xcorrs))))
+    for idx, corr in enumerate(xcorrs):
+        print(str(idx)+"\t"+"\t".join("%.2f" % c for c in corr))
 
 print("Preparing simulation ...")
 network = Network()
