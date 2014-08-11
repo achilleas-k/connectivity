@@ -4,12 +4,32 @@ from brian import *
 import spikerlib as sl
 
 
+def geninputsignal(*spikemons):
+    """
+    Return a convolved version of the combination of all provided spike trains.
+
+    Collects all spike trains from the given monitors and convolves them
+    with an exponential kernel to generate a signal waveform that describes
+    the entirety of the input population.
+
+    Arguments: Any number of spike monitors
+    """
+    kwidth = 10*tau
+    nbins = int(duration/dt)
+    binnedcounts = zeros(nbins)
+    for monitor in spikemons:
+        for st in monitor.spiketimes.itervalues():
+            binnedcounts += sl.tools.times_to_bin(st, dt, duration)
+    kernel = exp(-arange(0*second, kwidth, dt)/tau)
+    signal = convolve(binnedcounts, kernel)
+    return signal
+
 def calcslopes(vmon, spikemon):
     """
     Calculate slopes (non normalised, for now)
-    TODO: Calculate normalised slopes
 
     Returns average slopes (per cell) and individual slope values (flattened)
+    TODO: Calculate normalised slopes
     """
     allslopes = []
     avgslopes = []
@@ -25,6 +45,8 @@ def calcslopes(vmon, spikemon):
 
 def collectinputs(idx, group, *connections):
     """
+    Return the indices of all cells that connect to the given neuron `idx`.
+
     Collects the indices of all neurons that provide input for neuron `idx`
     in the neuron group `group`. Any number of Connection objects may
     be provided. The function returns a list of lists, where each list
@@ -91,7 +113,8 @@ ingroups = []
 inpconns = []
 for ing in range(Ningroups):
     ingroup = sl.tools.fast_synchronous_input_gen(Nin, fin,
-                                                  Sin, sigma, duration)
+                                                  Sin, sigma, duration,
+                                                  shuffle=True)
     inpconn = Connection(ingroup, nrngroup, 'V')
     # connect random subset of inputs to each cell
     for nrn in range(Nexc):
