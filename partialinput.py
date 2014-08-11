@@ -127,7 +127,6 @@ network.add(*ingroups)
 network.add(*inpconns)
 
 print("Setting up monitors ...")
-# record a few random cells as well (make sure they're not in sf chains)
 inpmons = [SpikeMonitor(ing) for ing in ingroups]
 network.add(*inpmons)
 vmon = StateMonitor(nrngroup, 'V', record=True)
