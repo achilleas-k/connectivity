@@ -89,22 +89,23 @@ w = 2*ms
 Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
-Nexc = 4
+Nnrns = 10
 Ningroups = 5
-Nin = 50000
-fin = 5*Hz
+Nin = 100000
+fin = 1*Hz
 Sin = 0.2
 sigma = 0*ms
 weight = 0.1*mV
-tau_exc = 0.2*ms
+tau_syn = 0.2*ms
 Nconn = int(0.01*Nin)  # number of connections each cell receives from each group
-lifeq_exc = Equations("""
-                      dV/dt = (a-Vrest-V)/tau : volt
-                      da/dt = (gIn-a)/tau_exc : volt
-                      dgIn/dt = -gIn/tau_exc : volt
-                      """)
+#lifeq_exc = Equations("""
+#                      dV/dt = (a-Vrest-V)/tau : volt
+#                      da/dt = (gIn-a)/tau_syn : volt
+#                      dgIn/dt = -gIn/tau_syn : volt
+#                      """)
+lifeq_exc = Equations("dV/dt = (Vrest-V)/tau : volt")
 lifeq_exc.prepare()
-nrngroup = NeuronGroup(Nexc, lifeq_exc, threshold="V>Vth", reset=Vrest,
+nrngroup = NeuronGroup(Nnrns, lifeq_exc, threshold="V>Vth", reset=Vrest,
                        refractory=2*ms)
 nrngroup.V = Vrest
 network.add(nrngroup)
@@ -114,10 +115,10 @@ inpconns = []
 for ing in range(Ningroups):
     ingroup = sl.tools.fast_synchronous_input_gen(Nin, fin,
                                                   Sin, sigma, duration,
-                                                  shuffle=True)
+                                                  shuffle=False)
     inpconn = Connection(ingroup, nrngroup, 'V')
     # connect random subset of inputs to each cell
-    for nrn in range(Nexc):
+    for nrn in range(Nnrns):
         inputids = np.random.choice(range(Nin), Nconn, replace=False)
         for inp in inputids:
             inpconn[inp, nrn] = weight
@@ -145,9 +146,11 @@ suptitle("Spike trains")
 subplot(2,1,1)
 title("Input")
 raster_plot(*inpmons)
+axis(xmin=0, xmax=duration/ms)
 subplot(2,1,2)
 title("Neurons")
 raster_plot(spikemon)
+axis(xmin=0, xmax=duration/ms)
 figure("Voltages")
 title("Membrane potential traces")
 vmon.plot()
