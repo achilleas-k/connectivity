@@ -33,13 +33,15 @@ def calcslopes(vmon, spikemon):
     """
     allslopes = []
     avgslopes = []
-    for idx in vmon.recordindex.iterkeys():
-        if len(spikemon[idx]) == 0:
+    for trace, spikes in zip(vmon.values, spikemon.spiketimes.itervalues()):
+        if len(spikes) == 0:
+            allslopes.append([])
+            avgslopes.append([])
             continue
-        spikeidx = array(spikemon[idx]/dt).astype('int')
+        spikeidx = array(spikes/dt).astype('int')
         slopestart = spikeidx-int(w/dt)
-        slopes = (Vth-vmon[idx][slopestart])/w
-        allslopes.extend(slopes)
+        slopes = (Vth-trace[slopestart])/w
+        allslopes.append(slopes)
         avgslopes.append(mean(slopes))
     return avgslopes, allslopes
 
@@ -89,15 +91,15 @@ w = 2*ms
 Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
-Nnrns = 10
+Nnrns = 4
 Ningroups = 5
 Nin = 100000
 fin = 1*Hz
-Sin = 0.2
+Sin = 0.05
 sigma = 0*ms
 weight = 0.1*mV
 tau_syn = 0.2*ms
-Nconn = int(0.01*Nin)  # number of connections each cell receives from each group
+Nconn = 2000  # number of connections each cell receives from each group
 lifeq_exc = Equations("dV/dt = (Vrest-V)/tau : volt")
 lifeq_exc.prepare()
 nrngroup = NeuronGroup(Nnrns, lifeq_exc, threshold="V>Vth", reset=Vrest,
@@ -121,6 +123,8 @@ for ing in range(Ningroups):
     inpconns.append(inpconn)
 network.add(*ingroups)
 network.add(*inpconns)
+asympt_v = fin*weight*tau*Nconn*Ningroups
+print("Asymptotic threshold-free membrane potential: %s" % (asympt_v))
 
 print("Setting up monitors ...")
 inpmons = [SpikeMonitor(ing) for ing in ingroups]
