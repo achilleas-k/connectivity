@@ -98,11 +98,6 @@ sigma = 0*ms
 weight = 0.1*mV
 tau_syn = 0.2*ms
 Nconn = int(0.01*Nin)  # number of connections each cell receives from each group
-#lifeq_exc = Equations("""
-#                      dV/dt = (a-Vrest-V)/tau : volt
-#                      da/dt = (gIn-a)/tau_syn : volt
-#                      dgIn/dt = -gIn/tau_syn : volt
-#                      """)
 lifeq_exc = Equations("dV/dt = (Vrest-V)/tau : volt")
 lifeq_exc.prepare()
 nrngroup = NeuronGroup(Nnrns, lifeq_exc, threshold="V>Vth", reset=Vrest,
