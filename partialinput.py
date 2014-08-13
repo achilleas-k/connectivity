@@ -62,7 +62,6 @@ def collectinputs(idx, group, *connections):
             inputs.append([])
     return inputs
 
-
 def printstats(vmon, spikemon):
     """
     Print spiking stats
@@ -80,6 +79,7 @@ def printstats(vmon, spikemon):
     print("\t"+"\t".join("%4i" % i for i in range(len(xcorrs))))
     for idx, corr in enumerate(xcorrs):
         print(str(idx)+"\t"+"\t".join("%.2f" % c for c in corr))
+
 
 print("Preparing simulation ...")
 network = Network()
