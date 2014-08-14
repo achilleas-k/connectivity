@@ -24,6 +24,13 @@ def geninputsignal(*spikemons):
     signal = convolve(binnedcounts, kernel)
     return signal
 
+def geninputsignal_partial(idxlist, *spikemons):
+    # TODO: Generate the input signal for each receiving neuron
+    inpsignals = []
+    for idxs, monitor in zip(idxlist, spikemons):
+        pass
+
+
 def calcslopes(vmon, spikemon):
     """
     Calculate slopes (non normalised, for now)
@@ -91,15 +98,14 @@ w = 2*ms
 Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
-Nnrns = 4
-Ningroups = 5
-Nin = 100000
+Nnrns = 5
+Ningroups = 10
+Nin = 1000
 fin = 1*Hz
-Sin = 0.05
+Sin = 0.1
 sigma = 0*ms
-weight = 0.1*mV
-tau_syn = 0.2*ms
-Nconn = 2000  # number of connections each cell receives from each group
+weight = 1.0*mV
+Nconn = 100  # number of connections each cell receives from each group
 lifeq_exc = Equations("dV/dt = (Vrest-V)/tau : volt")
 lifeq_exc.prepare()
 nrngroup = NeuronGroup(Nnrns, lifeq_exc, threshold="V>Vth", reset=Vrest,
@@ -114,13 +120,18 @@ for ing in range(Ningroups):
                                                   Sin, sigma, duration,
                                                   shuffle=False)
     inpconn = Connection(ingroup, nrngroup, 'V')
-    # connect random subset of inputs to each cell
-    for nrn in range(Nnrns):
-        inputids = np.random.choice(range(Nin), Nconn, replace=False)
-        for inp in inputids:
-            inpconn[inp, nrn] = weight
     ingroups.append(ingroup)
     inpconns.append(inpconn)
+inputneurons = []
+# TODO: Shove connections into a function
+for nrn in range(Nnrns):
+    inputids = np.random.choice(range(Nin*Ningroups), Nconn*Ningroups,
+                                replace=False)
+    inputneurons.append(inputids)
+    for inp in inputids:
+        inpgroup = int(inp/Nin)
+        inpidx = inp % Nin
+        inpconns[inpgroup][inpidx, nrn] = weight
 network.add(*ingroups)
 network.add(*inpconns)
 asympt_v = fin*weight*tau*Nconn*Ningroups
@@ -153,10 +164,18 @@ axis(xmin=0, xmax=duration/ms)
 figure("Voltages")
 title("Membrane potential traces")
 vmon.plot()
+plot([0*second, duration], [Vth, Vth], 'k--')
 legend()
 figure("Input signal")
 title("Input signal")
 inpsignal = geninputsignal(*inpmons)
 t = arange(0*second, duration, dt)
 plot(t, inpsignal[:len(t)])
+figure("Slopes")
+mslopes, allslopes = calcslopes(vmon, spikemon)
+for sp, slopes in zip(spikemon.spiketimes.itervalues(), allslopes):
+    plot(sp, slopes)
+    axis(xmin=0*second, xmax=duration)
+figure("Per cell input signal")
+
 show()
