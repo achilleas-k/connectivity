@@ -6,6 +6,7 @@ from brian import (Network, Equations, NeuronGroup, SpikeMonitor, StateMonitor,
 from numpy import arange, zeros, exp, convolve, array, mean, corrcoef, random
 from matplotlib import pyplot
 import spikerlib as sl
+from QuickGA import GA
 
 
 def gen_population_signal(*spikemons):
@@ -101,6 +102,24 @@ def printstats(vmon, spikemon):
     for idx, corr in enumerate(xcorrs):
         print(str(idx)+"\t"+"\t".join("%.2f" % c for c in corr))
 
+def find_input_set(slopes, outspikes, *inpmons):
+    """
+    Find set of inputs that maximises the correlation between input and slopes
+
+    Uses a GA to find the set of input spike trains that maximises the
+    correlation between the input signal (see `gen_input_signals`) -
+    discretised by output spike times - with the slopes of the membrane
+    potential at each spike time.
+    """
+    # Since the GA uses fixes length chromosomes, I'm going to assume I know
+    # that the number of inputs is Nconn*Ningroups
+    # TODO: Implement variable length chromosomes
+    maxpop = 100
+    chromlength = Nconn*Ningroups
+    ga = GA(maxpop, chromlength)
+    def fitnessfunc():
+        pass
+    ga.fitnessfunc = fitnessfunc
 
 print("Preparing simulation ...")
 network = Network()
