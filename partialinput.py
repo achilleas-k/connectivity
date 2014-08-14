@@ -1,6 +1,10 @@
 from __future__ import print_function
 from __future__ import division
-from brian import *
+from brian import (Network, Equations, NeuronGroup, SpikeMonitor, StateMonitor,
+                   Connection, raster_plot,
+                   defaultclock, second, ms, mV, Hz)
+from numpy import arange, zeros, exp, convolve, array, mean, corrcoef, random
+from matplotlib import pyplot
 import spikerlib as sl
 
 
@@ -133,7 +137,7 @@ for ing in range(Ningroups):
 inputneurons = []
 # CONNECTIONS
 for nrn in range(Nnrns):
-    inputids = np.random.choice(range(Nin*Ningroups), Nconn*Ningroups,
+    inputids = random.choice(range(Nin*Ningroups), Nconn*Ningroups,
                                 replace=False)
     inpnrns_row = []
     for inp in inputids:
@@ -160,32 +164,32 @@ network.run(duration, report="stdout")
 if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
     printstats(vmon, spikemon)
-ion()
+pyplot.ion()
 # spike trains figure
-figure("Spikes")
-suptitle("Spike trains")
-subplot(2,1,1)
-title("Input")
+pyplot.figure("Spikes")
+pyplot.suptitle("Spike trains")
+pyplot.subplot(2,1,1)
+pyplot.title("Input")
 raster_plot(*inpmons)
-axis(xmin=0, xmax=duration/ms)
-subplot(2,1,2)
-title("Neurons")
+pyplot.axis(xmin=0, xmax=duration/ms)
+pyplot.subplot(2,1,2)
+pyplot.title("Neurons")
 raster_plot(spikemon)
-axis(xmin=0, xmax=duration/ms)
+pyplot.axis(xmin=0, xmax=duration/ms)
 # voltages of target neurons
-figure("Voltages")
-title("Membrane potential traces")
+pyplot.figure("Voltages")
+pyplot.title("Membrane potential traces")
 vmon.plot()
-plot([0*second, duration], [Vth, Vth], 'k--')
-legend()
+pyplot.plot([0*second, duration], [Vth, Vth], 'k--')
+pyplot.legend()
 # global input population signal (exponential convolution)
-figure("Input signal")
-title("Input signal")
+pyplot.figure("Input signal")
+pyplot.title("Input signal")
 inpsignal = gen_population_signal(*inpmons)
 t = arange(0*second, duration, dt)
-plot(t, inpsignal[:len(t)])
+pyplot.plot(t, inpsignal[:len(t)])
 # membrane potential slopes with individual input signals
-figure("Slopes and signals")
+pyplot.figure("Slopes and signals")
 mslopes, allslopes = calcslopes(vmon, spikemon)
 inpsignals = gen_input_signals(inputneurons, *inpmons)
 nplot = 0
@@ -195,15 +199,16 @@ for sp, slopes, insgnl in zip(spikemon.spiketimes.itervalues(),
                               allslopes,
                               inpsignals):
     nplot += 1
-    subplot(Nnrns, 1, nplot)
-    plot(sp, slopes/max(slopes))
+    pyplot.subplot(Nnrns, 1, nplot)
+    pyplot.plot(sp, slopes/max(slopes))
     inds = array(sp/dt).astype("int")
-    plot(sp, insgnl[inds]/max(insgnl))
-    axis(xmin=0*second, xmax=duration)
+    pyplot.plot(sp, insgnl[inds]/max(insgnl))
+    pyplot.axis(xmin=0*second, xmax=duration)
     correlation = corrcoef(slopes, insgnl[inds])[0,1]
     print("%i:\t%.4f" % (nplot-1, correlation))
     disc_signals.append(insgnl[inds])
-show()
+pyplot.show()
 
-# TODO: Run GA or similar to find combination of inputs that maximises
+# TODO: Run GA to find combination of inputs that maximises
 # correlation between input signal and slopes
+
