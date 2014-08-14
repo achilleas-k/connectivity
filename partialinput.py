@@ -4,7 +4,7 @@ from brian import *
 import spikerlib as sl
 
 
-def geninputsignal(*spikemons):
+def gen_population_signal(*spikemons):
     """
     Return a convolved version of the combination of all provided spike trains.
 
@@ -24,12 +24,21 @@ def geninputsignal(*spikemons):
     signal = convolve(binnedcounts, kernel)
     return signal
 
-def geninputsignal_partial(idxlist, *spikemons):
+def gen_input_signals(idxlist, *spikemons):
     # TODO: Generate the input signal for each receiving neuron
     inpsignals = []
-    for idxs, monitor in zip(idxlist, spikemons):
-        pass
-
+    kwidth = 10*tau
+    kernel = exp(-arange(0*second, kwidth, dt)/tau)
+    nbins = int(duration/dt)
+    for targetinputs in idxlist:
+        binnedcounts = zeros(nbins)
+        for ingrpid, inpidx in targetinputs:
+            inputgroup = spikemons[ingrpid]
+            inspikes = inputgroup[inpidx]
+            binnedcounts += sl.tools.times_to_bin(inspikes, dt, duration)
+        signal = convolve(binnedcounts, kernel)
+        inpsignals.append(signal)
+    return inpsignals
 
 def calcslopes(vmon, spikemon):
     """
@@ -127,11 +136,13 @@ inputneurons = []
 for nrn in range(Nnrns):
     inputids = np.random.choice(range(Nin*Ningroups), Nconn*Ningroups,
                                 replace=False)
-    inputneurons.append(inputids)
+    inpnrns_row = []
     for inp in inputids:
         inpgroup = int(inp/Nin)
         inpidx = inp % Nin
+        inpnrns_row.append((inpgroup, inpidx))
         inpconns[inpgroup][inpidx, nrn] = weight
+    inputneurons.append(inpnrns_row)
 network.add(*ingroups)
 network.add(*inpconns)
 asympt_v = fin*weight*tau*Nconn*Ningroups
@@ -168,7 +179,7 @@ plot([0*second, duration], [Vth, Vth], 'k--')
 legend()
 figure("Input signal")
 title("Input signal")
-inpsignal = geninputsignal(*inpmons)
+inpsignal = gen_population_signal(*inpmons)
 t = arange(0*second, duration, dt)
 plot(t, inpsignal[:len(t)])
 figure("Slopes")
@@ -177,5 +188,7 @@ for sp, slopes in zip(spikemon.spiketimes.itervalues(), allslopes):
     plot(sp, slopes)
     axis(xmin=0*second, xmax=duration)
 figure("Per cell input signal")
-
+inpsignals = gen_input_signals(inputneurons, *inpmons)
+for isgnl in inpsignals:
+    plot(t, isgnl[:len(t)])
 show()
