@@ -25,7 +25,6 @@ def gen_population_signal(*spikemons):
     return signal
 
 def gen_input_signals(idxlist, *spikemons):
-    # TODO: Generate the input signal for each receiving neuron
     inpsignals = []
     kwidth = 10*tau
     kernel = exp(-arange(0*second, kwidth, dt)/tau)
@@ -132,7 +131,7 @@ for ing in range(Ningroups):
     ingroups.append(ingroup)
     inpconns.append(inpconn)
 inputneurons = []
-# TODO: Shove connections into a function
+# CONNECTIONS
 for nrn in range(Nnrns):
     inputids = np.random.choice(range(Nin*Ningroups), Nconn*Ningroups,
                                 replace=False)
@@ -162,6 +161,7 @@ if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
     printstats(vmon, spikemon)
 ion()
+# spike trains figure
 figure("Spikes")
 suptitle("Spike trains")
 subplot(2,1,1)
@@ -172,23 +172,38 @@ subplot(2,1,2)
 title("Neurons")
 raster_plot(spikemon)
 axis(xmin=0, xmax=duration/ms)
+# voltages of target neurons
 figure("Voltages")
 title("Membrane potential traces")
 vmon.plot()
 plot([0*second, duration], [Vth, Vth], 'k--')
 legend()
+# global input population signal (exponential convolution)
 figure("Input signal")
 title("Input signal")
 inpsignal = gen_population_signal(*inpmons)
 t = arange(0*second, duration, dt)
 plot(t, inpsignal[:len(t)])
-figure("Slopes")
+# membrane potential slopes with individual input signals
+figure("Slopes and signals")
 mslopes, allslopes = calcslopes(vmon, spikemon)
-for sp, slopes in zip(spikemon.spiketimes.itervalues(), allslopes):
-    plot(sp, slopes)
-    axis(xmin=0*second, xmax=duration)
-figure("Per cell input signal")
 inpsignals = gen_input_signals(inputneurons, *inpmons)
-for isgnl in inpsignals:
-    plot(t, isgnl[:len(t)])
+nplot = 0
+disc_signals = []
+print("\nCorrelation between input signal and slopes")
+for sp, slopes, insgnl in zip(spikemon.spiketimes.itervalues(),
+                              allslopes,
+                              inpsignals):
+    nplot += 1
+    subplot(Nnrns, 1, nplot)
+    plot(sp, slopes/max(slopes))
+    inds = array(sp/dt).astype("int")
+    plot(sp, insgnl[inds]/max(insgnl))
+    axis(xmin=0*second, xmax=duration)
+    correlation = corrcoef(slopes, insgnl[inds])[0,1]
+    print("%i:\t%.4f" % (nplot-1, correlation))
+    disc_signals.append(insgnl[inds])
 show()
+
+# TODO: Run GA or similar to find combination of inputs that maximises
+# correlation between input signal and slopes
