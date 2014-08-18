@@ -6,8 +6,7 @@ from brian import (Network, Equations, NeuronGroup, SpikeMonitor, StateMonitor,
 from numpy import arange, zeros, exp, convolve, array, mean, corrcoef, random
 from matplotlib import pyplot
 import spikerlib as sl
-from QuickGA import GA
-
+from quickga import GA
 
 def gen_population_signal(*spikemons):
     """
@@ -102,7 +101,7 @@ def printstats(vmon, spikemon):
     for idx, corr in enumerate(xcorrs):
         print(str(idx)+"\t"+"\t".join("%.2f" % c for c in corr))
 
-def find_input_set(slopes, outspikes, *inpmons):
+def find_input_set(slopes, outspikes_idx, inpmons):
     """
     Find set of inputs that maximises the correlation between input and slopes
 
@@ -113,13 +112,43 @@ def find_input_set(slopes, outspikes, *inpmons):
     """
     # Since the GA uses fixes length chromosomes, I'm going to assume I know
     # that the number of inputs is Nconn*Ningroups
-    # TODO: Implement variable length chromosomes
+    # TODO: Implement variable length chromosomes (in quickga)
+    # On the other hand, I can have fixed length chromosome with length equal
+    # to the number of inputs in total, that is just a bit string (on/off per
+    # input index)
     maxpop = 100
     chromlength = Nconn*Ningroups
-    ga = GA(maxpop, chromlength)
-    def fitnessfunc():
-        pass
+    mutation_prob = 0.01
+    mutation_strength = 10
+    genemin = 0
+    genemax = Ningroups*Nin
+    outfile = "ga_input_set.log"
+    ga = GA(maxpop, chromlength, mutation_probability=mutation_prob,
+            mutation_strength=mutation_strength, genemin=genemin,
+            genemax=genemax, logfile=outfile)
+    # requires population initialisation with integers
+    # TODO: Create a random initial population or implement gene type
+    # specification in quickga
     ga.fitnessfunc = fitnessfunc
+    ga.optimise(1000, slopes, outspikes_idx, inpmons)
+
+def fitnessfunc(individual, slopes, outspikes_idx, inpmons):
+    inputidces = individual.chromosome
+    kwidth = 10*tau
+    kernel = exp(-arange(0*second, kwidth, dt)/tau)
+    nbins = int(duration/dt)
+    binnedcounts = zeros(nbins)
+    ngroups = len(inpmons)
+    for idx in inputidces:
+        ingrpid = int(idx/ngroups)
+        inpidx = int(idx % ngroups)
+        inputgroup = inpmons[ingrpid]
+        inspikes = inputgroup[inpidx]
+        binnedcounts += sl.tools.times_to_bin(inspikes, dt, duration)
+    signal = convolve(binnedcounts, kernel)
+    signal_disc = signal[outspikes_idx]
+    correlation = corrcoef(slopes, signal_disc)
+    individual.fitness = 1-correlation[0,1]
 
 print("Preparing simulation ...")
 network = Network()
@@ -230,4 +259,7 @@ pyplot.show()
 
 # TODO: Run GA to find combination of inputs that maximises
 # correlation between input signal and slopes
-
+outspikes = spikemon[0]
+outspikes_idx = array(outspikes/dt).astype("int")
+slopes = allslopes[0]
+#find_input_set(slopes, outspikes_idx, inpmons)
