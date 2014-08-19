@@ -121,14 +121,11 @@ def find_input_set(slopes, outspikes_idx, inpmons):
     mutation_prob = 0.01
     mutation_strength = 10
     genemin = 0
-    genemax = Ningroups*Nin
+    genemax = Ningroups*Nin-1  # genemax is inclusive
     outfile = "ga_input_set.log"
     ga = GA(maxpop, chromlength, mutation_probability=mutation_prob,
             mutation_strength=mutation_strength, genemin=genemin,
-            genemax=genemax, logfile=outfile)
-    # requires population initialisation with integers
-    # TODO: Create a random initial population or implement gene type
-    # specification in quickga
+            genemax=genemax, logfile=outfile, genetype=int)
     ga.fitnessfunc = fitnessfunc
     ga.optimise(1000, slopes, outspikes_idx, inpmons)
 
@@ -138,13 +135,17 @@ def fitnessfunc(individual, slopes, outspikes_idx, inpmons):
     kernel = exp(-arange(0*second, kwidth, dt)/tau)
     nbins = int(duration/dt)
     binnedcounts = zeros(nbins)
-    ngroups = len(inpmons)
-    for idx in inputidces:
-        ingrpid = int(idx/ngroups)
-        inpidx = int(idx % ngroups)
-        inputgroup = inpmons[ingrpid]
-        inspikes = inputgroup[inpidx]
-        binnedcounts += sl.tools.times_to_bin(inspikes, dt, duration)
+    try:
+        for idx in inputidces:
+            ingrpid = int(idx/Nin)
+            inpidx = idx%Nin
+            inputgroup = inpmons[ingrpid]
+            inspikes = inputgroup[inpidx]
+            binnedcounts += sl.tools.times_to_bin(inspikes, dt, duration)
+    except IndexError:
+        print(idx)
+        print(ingrpid)
+        raise
     signal = convolve(binnedcounts, kernel)
     signal_disc = signal[outspikes_idx]
     correlation = corrcoef(slopes, signal_disc)
@@ -190,7 +191,7 @@ for nrn in range(Nnrns):
     inpnrns_row = []
     for inp in inputids:
         inpgroup = int(inp/Nin)
-        inpidx = inp % Nin
+        inpidx = inp%Nin
         inpnrns_row.append((inpgroup, inpidx))
         inpconns[inpgroup][inpidx, nrn] = weight
     inputneurons.append(inpnrns_row)
