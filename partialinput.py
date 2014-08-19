@@ -3,7 +3,7 @@ from __future__ import division
 from brian import (Network, Equations, NeuronGroup, SpikeMonitor, StateMonitor,
                    Connection, raster_plot,
                    defaultclock, second, ms, mV, Hz)
-from numpy import arange, zeros, exp, convolve, array, mean, corrcoef, random
+from numpy import (arange, zeros, exp, convolve, array, mean, corrcoef, random)
 from matplotlib import pyplot
 import spikerlib as sl
 from quickga import GA
@@ -57,9 +57,7 @@ def calcslopes(vmon, spikemon):
             allslopes.append([])
             avgslopes.append([])
             continue
-        spikeidx = array(spikes/dt).astype('int')
-        slopestart = spikeidx-int(w/dt)
-        slopes = (Vth-trace[slopestart])/w
+        slopes = sl.tools.npss(trace, spikes, Vrest, Vth, tau, w, dt)
         allslopes.append(slopes)
         avgslopes.append(mean(slopes))
     return avgslopes, allslopes
@@ -128,6 +126,10 @@ def find_input_set(slopes, outspikes_idx, inpmons):
             genemax=genemax, logfile=outfile, genetype=int)
     ga.fitnessfunc = fitnessfunc
     ga.optimise(1000, slopes, outspikes_idx, inpmons)
+    # could just return population, but returning entire class is better for
+    # checking on all individuals and maybe running a few more optimisation
+    # rounds
+    return ga
 
 def fitnessfunc(individual, slopes, outspikes_idx, inpmons):
     inputidces = individual.chromosome
@@ -256,11 +258,21 @@ for sp, slopes, insgnl in zip(spikemon.spiketimes.itervalues(),
     correlation = corrcoef(slopes, insgnl[inds])[0,1]
     print("%i:\t%.4f" % (nplot-1, correlation))
     disc_signals.append(insgnl[inds])
-pyplot.show()
+# plots are just annoying for now
+#pyplot.show()
 
-# TODO: Run GA to find combination of inputs that maximises
-# correlation between input signal and slopes
-outspikes = spikemon[0]
-outspikes_idx = array(outspikes/dt).astype("int")
-slopes = allslopes[0]
-#find_input_set(slopes, outspikes_idx, inpmons)
+optimisers = []
+for idx in range(Nnrns):
+    outspikes = spikemon[idx]
+    outspikes_idx = array(outspikes/dt).astype("int")
+    slopes = allslopes[idx]
+    ga = find_input_set(slopes, outspikes_idx, inpmons)
+    optimisers.append(ga)
+    # count hits for best individual
+    best_ind = ga.alltime_bestind
+    best_inputs = [(int(gene/Nin), int(gene%Nin))
+                   for gene in best_ind.chromosome]
+    hits = [1 if pair in inputneurons[idx] else 0
+            for pair in best_inputs]
+    accuracy = sum(hits)/len(hits)
+    print("Input search for neuron %i --- accuracy %2.2f %%" % (idx, accuracy*100))
