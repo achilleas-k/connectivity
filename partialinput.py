@@ -245,6 +245,10 @@ network.run(duration, report="stdout")
 if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
     printstats(vmon, spikemon)
+
+inpsignal = gen_population_signal(*inpmons)
+t = arange(0*second, duration, dt)
+
 if doplot:
     pyplot.ion()
 # spike trains figure
@@ -267,15 +271,14 @@ if doplot:
 # global input population signal (exponential convolution)
     pyplot.figure("Input signal")
     pyplot.title("Input signal")
-    inpsignal = gen_population_signal(*inpmons)
-    t = arange(0*second, duration, dt)
     pyplot.plot(t, inpsignal[:len(t)])
 # membrane potential slopes with individual input signals
     pyplot.figure("Slopes and signals")
-    mslopes, allslopes = calcslopes(vmon, spikemon)
-    inpsignals = gen_input_signals(inputneurons, *inpmons)
-    nplot = 0
-    disc_signals = []
+
+mslopes, allslopes = calcslopes(vmon, spikemon)
+inpsignals = gen_input_signals(inputneurons, *inpmons)
+nplot = 0
+disc_signals = []
 print("\nCorrelation between input signal and slopes")
 for sp, slopes, insgnl in zip(spikemon.spiketimes.itervalues(),
                               allslopes,
