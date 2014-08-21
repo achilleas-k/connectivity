@@ -242,12 +242,33 @@ network.add(spikemon)
 
 print("Running simulation for %s ..." % (duration))
 network.run(duration, report="stdout")
-if spikemon.nspikes:
-    vmon.insert_spikes(spikemon, Vth*2)
-    printstats(vmon, spikemon)
+print("Done. Computing results ...")
+
 
 inpsignal = gen_population_signal(*inpmons)
 t = arange(0*second, duration, dt)
+if spikemon.nspikes:
+    vmon.insert_spikes(spikemon, Vth*2)
+    printstats(vmon, spikemon)
+    mslopes, allslopes = calcslopes(vmon, spikemon)
+    inpsignals = gen_input_signals(inputneurons, *inpmons)
+    nplot = 0
+    disc_signals = []
+    print("\nCorrelation between input signal and slopes")
+    for sp, slopes, insgnl in zip(spikemon.spiketimes.itervalues(),
+                                  allslopes,
+                                  inpsignals):
+        nplot += 1
+        inds = array(sp/dt).astype("int")
+        correlation = corrcoef(slopes, insgnl[inds])[0,1]
+        disc_signals.append(insgnl[inds])
+        print("%i:\t%.4f" % (nplot-1, correlation))
+        if doplot:
+            pyplot.subplot(Nnrns, 1, nplot)
+            pyplot.plot(sp, slopes/max(slopes))
+            pyplot.plot(sp, insgnl[inds]/max(insgnl))
+            pyplot.axis(xmin=0*second, xmax=duration)
+
 
 if doplot:
     pyplot.ion()
@@ -275,24 +296,6 @@ if doplot:
 # membrane potential slopes with individual input signals
     pyplot.figure("Slopes and signals")
 
-mslopes, allslopes = calcslopes(vmon, spikemon)
-inpsignals = gen_input_signals(inputneurons, *inpmons)
-nplot = 0
-disc_signals = []
-print("\nCorrelation between input signal and slopes")
-for sp, slopes, insgnl in zip(spikemon.spiketimes.itervalues(),
-                              allslopes,
-                              inpsignals):
-    nplot += 1
-    inds = array(sp/dt).astype("int")
-    correlation = corrcoef(slopes, insgnl[inds])[0,1]
-    disc_signals.append(insgnl[inds])
-    print("%i:\t%.4f" % (nplot-1, correlation))
-    if doplot:
-        pyplot.subplot(Nnrns, 1, nplot)
-        pyplot.plot(sp, slopes/max(slopes))
-        pyplot.plot(sp, insgnl[inds]/max(insgnl))
-        pyplot.axis(xmin=0*second, xmax=duration)
 
 #optimisers = []
 #for idx in range(Nnrns):
