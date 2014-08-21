@@ -45,6 +45,7 @@ def gen_input_signals(idxlist, *spikemons):
         inpsignals.append(signal)
     return inpsignals
 
+
 def kreuz_all_pairs(*spikemons):
     """
     Calculate the Kreuz distance between all pairs of spike trains and return
@@ -57,15 +58,13 @@ def kreuz_all_pairs(*spikemons):
         allspiketrains.extend(smon.spiketimes.values())
     allspiketrains = array(allspiketrains)
     # use a multiprocessing pool to calculate all pairwise distances
-    pair_idces = it.combinations(range(len(allspiketrains)))
+    pair_idces = it.combinations(range(len(allspiketrains)), 2)
     pool = mp.Pool()
-    pool_results = pool.map(
-        lambda idces: sl.metrics.kreuz.distance(
-            allspiketrains[idces[0]],
-            allspiketrains[idces[1]],
-            0*second, duration,
-            100),
-        pair_idces)
+    def _kreuz_pair(idces):
+        a, b = idces
+        return sl.metrics.kreuz.distance(allspiketrains[a], allspiketrains[b],
+                                         0*second, duration, 100)
+    pool_results = pool.map(_kreuz_pair, pair_idces)
     pool.close()
     pool.join()
     distances = []
@@ -184,6 +183,7 @@ def fitnessfunc(individual, slopes, outspikes_idx, inpmons):
     individual.fitness = 1-correlation[0,1]
 
 print("Preparing simulation ...")
+doplot = False
 network = Network()
 defaultclock.dt = dt = 0.1*ms
 duration = 1*second
@@ -192,8 +192,8 @@ Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
 Nnrns = 5
-Ningroups = 10
-Nin = 1000
+Ningroups = 2
+Nin = 100
 fin = 1*Hz
 Sin = 0.1
 sigma = 0*ms
@@ -245,49 +245,51 @@ network.run(duration, report="stdout")
 if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
     printstats(vmon, spikemon)
-pyplot.ion()
+if doplot:
+    pyplot.ion()
 # spike trains figure
-pyplot.figure("Spikes")
-pyplot.suptitle("Spike trains")
-pyplot.subplot(2,1,1)
-pyplot.title("Input")
-raster_plot(*inpmons)
-pyplot.axis(xmin=0, xmax=duration/ms)
-pyplot.subplot(2,1,2)
-pyplot.title("Neurons")
-raster_plot(spikemon)
-pyplot.axis(xmin=0, xmax=duration/ms)
+    pyplot.figure("Spikes")
+    pyplot.suptitle("Spike trains")
+    pyplot.subplot(2,1,1)
+    pyplot.title("Input")
+    raster_plot(*inpmons)
+    pyplot.axis(xmin=0, xmax=duration/ms)
+    pyplot.subplot(2,1,2)
+    pyplot.title("Neurons")
+    raster_plot(spikemon)
+    pyplot.axis(xmin=0, xmax=duration/ms)
 # voltages of target neurons
-pyplot.figure("Voltages")
-pyplot.title("Membrane potential traces")
-vmon.plot()
-pyplot.plot([0*second, duration], [Vth, Vth], 'k--')
-pyplot.legend()
+    pyplot.figure("Voltages")
+    pyplot.title("Membrane potential traces")
+    vmon.plot()
+    pyplot.plot([0*second, duration], [Vth, Vth], 'k--')
+    pyplot.legend()
 # global input population signal (exponential convolution)
-pyplot.figure("Input signal")
-pyplot.title("Input signal")
-inpsignal = gen_population_signal(*inpmons)
-t = arange(0*second, duration, dt)
-pyplot.plot(t, inpsignal[:len(t)])
+    pyplot.figure("Input signal")
+    pyplot.title("Input signal")
+    inpsignal = gen_population_signal(*inpmons)
+    t = arange(0*second, duration, dt)
+    pyplot.plot(t, inpsignal[:len(t)])
 # membrane potential slopes with individual input signals
-pyplot.figure("Slopes and signals")
-mslopes, allslopes = calcslopes(vmon, spikemon)
-inpsignals = gen_input_signals(inputneurons, *inpmons)
-nplot = 0
-disc_signals = []
+    pyplot.figure("Slopes and signals")
+    mslopes, allslopes = calcslopes(vmon, spikemon)
+    inpsignals = gen_input_signals(inputneurons, *inpmons)
+    nplot = 0
+    disc_signals = []
 print("\nCorrelation between input signal and slopes")
 for sp, slopes, insgnl in zip(spikemon.spiketimes.itervalues(),
                               allslopes,
                               inpsignals):
     nplot += 1
-    pyplot.subplot(Nnrns, 1, nplot)
-    pyplot.plot(sp, slopes/max(slopes))
     inds = array(sp/dt).astype("int")
-    pyplot.plot(sp, insgnl[inds]/max(insgnl))
-    pyplot.axis(xmin=0*second, xmax=duration)
     correlation = corrcoef(slopes, insgnl[inds])[0,1]
-    print("%i:\t%.4f" % (nplot-1, correlation))
     disc_signals.append(insgnl[inds])
+    print("%i:\t%.4f" % (nplot-1, correlation))
+    if doplot:
+        pyplot.subplot(Nnrns, 1, nplot)
+        pyplot.plot(sp, slopes/max(slopes))
+        pyplot.plot(sp, insgnl[inds]/max(insgnl))
+        pyplot.axis(xmin=0*second, xmax=duration)
 
 #optimisers = []
 #for idx in range(Nnrns):
