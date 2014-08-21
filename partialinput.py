@@ -5,6 +5,8 @@ from brian import (Network, Equations, NeuronGroup, SpikeMonitor, StateMonitor,
                    defaultclock, second, ms, mV, Hz)
 from numpy import (arange, zeros, exp, convolve, array, mean, corrcoef, random)
 from matplotlib import pyplot
+import itertools as it
+import multiprocessing as mp
 import spikerlib as sl
 from quickga import GA
 
@@ -42,6 +44,34 @@ def gen_input_signals(idxlist, *spikemons):
         signal = convolve(binnedcounts, kernel)
         inpsignals.append(signal)
     return inpsignals
+
+def kreuz_all_pairs(*spikemons):
+    """
+    Calculate the Kreuz distance between all pairs of spike trains and return
+    the results in an NxN array (where N is the total number of spike trains).
+    NB: This can take ages [Npairs = N*(N+1)/2]
+    """
+    # collect all spike trains into an array of arrays
+    allspiketrains = []
+    for smon in spikemons:
+        allspiketrains.extend(smon.spiketimes.values())
+    allspiketrains = array(allspiketrains)
+    # use a multiprocessing pool to calculate all pairwise distances
+    pair_idces = it.combinations(range(len(allspiketrains)))
+    pool = mp.Pool()
+    pool_results = pool.map(
+        lambda idces: sl.metrics.kreuz.distance(
+            allspiketrains[idces[0]],
+            allspiketrains[idces[1]],
+            0*second, duration,
+            100),
+        pair_idces)
+    pool.close()
+    pool.join()
+    distances = []
+    for pr in pool_results:
+        distances.append(mean(pr[1]))
+    return distances
 
 def calcslopes(vmon, spikemon):
     """
@@ -258,21 +288,19 @@ for sp, slopes, insgnl in zip(spikemon.spiketimes.itervalues(),
     correlation = corrcoef(slopes, insgnl[inds])[0,1]
     print("%i:\t%.4f" % (nplot-1, correlation))
     disc_signals.append(insgnl[inds])
-# plots are just annoying for now
-#pyplot.show()
 
-optimisers = []
-for idx in range(Nnrns):
-    outspikes = spikemon[idx]
-    outspikes_idx = array(outspikes/dt).astype("int")
-    slopes = allslopes[idx]
-    ga = find_input_set(slopes, outspikes_idx, inpmons)
-    optimisers.append(ga)
-    # count hits for best individual
-    best_ind = ga.alltime_bestind
-    best_inputs = [(int(gene/Nin), int(gene%Nin))
-                   for gene in best_ind.chromosome]
-    hits = [1 if pair in inputneurons[idx] else 0
-            for pair in best_inputs]
-    accuracy = sum(hits)/len(hits)
-    print("Input search for neuron %i --- accuracy %2.2f %%" % (idx, accuracy*100))
+#optimisers = []
+#for idx in range(Nnrns):
+#    outspikes = spikemon[idx]
+#    outspikes_idx = array(outspikes/dt).astype("int")
+#    slopes = allslopes[idx]
+#    ga = find_input_set(slopes, outspikes_idx, inpmons)
+#    optimisers.append(ga)
+#    # count hits for best individual
+#    best_ind = ga.alltime_bestind
+#    best_inputs = [(int(gene/Nin), int(gene%Nin))
+#                   for gene in best_ind.chromosome]
+#    hits = [1 if pair in inputneurons[idx] else 0
+#            for pair in best_inputs]
+#    accuracy = sum(hits)/len(hits)
+#    print("Input search for neuron %i --- accuracy %2.2f %%" % (idx, accuracy*100))
