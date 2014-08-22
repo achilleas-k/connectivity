@@ -3,7 +3,8 @@ from __future__ import division
 from brian import (Network, Equations, NeuronGroup, SpikeMonitor, StateMonitor,
                    Connection, raster_plot,
                    defaultclock, second, ms, mV, Hz)
-from numpy import (arange, zeros, exp, convolve, array, mean, corrcoef, random)
+from numpy import (arange, zeros, exp, convolve, array, mean, corrcoef, random,
+                   shape)
 from matplotlib import pyplot
 import itertools as it
 import multiprocessing as mp
@@ -45,15 +46,33 @@ def gen_input_signals(idxlist, *spikemons):
         inpsignals.append(signal)
     return inpsignals
 
+def dist_global(distmatrix):
+    """Global distance is just the average across pairs"""
+    dshape = shape(distmatrix)
+    newshape = (dshape[0]*dshape[1], dshape[2])
+    distmatrix.reshape(newshape)
+    gdist = mean(distmatrix, 0)
+    return gdist
+
+def dist_inputs(idxes, distmatrix):
+    """
+    Average distance between all pairs of input spike trains specified by idxes
+    """
+    pairs = list(it.combinations(idxes, 2))
+    dist_sum = zeros(nkreuzsamples)
+    for i, j in pairs:
+        dist_sum += distmatrix[i,j]
+    dist_mean = dist_sum/len(pairs)
+    return dist_mean
+
 def _kreuz_pair(args):
     idces, spiketrains = args
     a, b = idces
     t, d = sl.metrics.kreuz.distance(spiketrains[a], spiketrains[b],
-                                     0*second, duration, 100)
+                                     0*second, duration, nkreuzsamples)
     return d
 
-
-def kreuz_all_pairs(*spikemons):
+def dist_all_pairs(*spikemons):
     """
     Calculate the Kreuz distance between all pairs of spike trains and return
     the results in an NxN array (where N is the total number of spike trains).
@@ -72,11 +91,11 @@ def kreuz_all_pairs(*spikemons):
                                              it.repeat(allspiketrains)))
     pool.close()
     pool.join()
-    distances = zeros((ntrains, ntrains))
+    distances = zeros((ntrains, ntrains, nkreuzsamples))
     for idx, pr in zip(pair_idces, pool_results):
         i, j = idx
-        distances[i,j] = mean(pr)
-        distances[j,i] = mean(pr)  # redundant, but will probably help
+        distances[i,j] = pr
+        distances[j,i] = pr
     return distances
 
 def calcslopes(vmon, spikemon):
@@ -195,6 +214,7 @@ network = Network()
 defaultclock.dt = dt = 0.1*ms
 duration = 1*second
 w = 2*ms
+nkreuzsamples = 100
 Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
@@ -206,6 +226,8 @@ Sin = 0.1
 sigma = 0*ms
 weight = 1.0*mV
 Nconn = 100  # number of connections each cell receives from each group
+
+
 lifeq_exc = Equations("dV/dt = (Vrest-V)/tau : volt")
 lifeq_exc.prepare()
 nrngroup = NeuronGroup(Nnrns, lifeq_exc, threshold="V>Vth", reset=Vrest,
