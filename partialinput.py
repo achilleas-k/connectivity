@@ -45,6 +45,13 @@ def gen_input_signals(idxlist, *spikemons):
         inpsignals.append(signal)
     return inpsignals
 
+def _kreuz_pair(args):
+    idces, spiketrains = args
+    a, b = idces
+    t, d = sl.metrics.kreuz.distance(spiketrains[a], spiketrains[b],
+                                     0*second, duration, 100)
+    return d
+
 
 def kreuz_all_pairs(*spikemons):
     """
@@ -57,19 +64,19 @@ def kreuz_all_pairs(*spikemons):
     for smon in spikemons:
         allspiketrains.extend(smon.spiketimes.values())
     allspiketrains = array(allspiketrains)
+    ntrains = len(allspiketrains)
     # use a multiprocessing pool to calculate all pairwise distances
-    pair_idces = it.combinations(range(len(allspiketrains)), 2)
+    pair_idces = list(it.combinations(range(ntrains), 2))
     pool = mp.Pool()
-    def _kreuz_pair(idces):
-        a, b = idces
-        return sl.metrics.kreuz.distance(allspiketrains[a], allspiketrains[b],
-                                         0*second, duration, 100)
-    pool_results = pool.map(_kreuz_pair, pair_idces)
+    pool_results = pool.map(_kreuz_pair, zip(pair_idces,
+                                             it.repeat(allspiketrains)))
     pool.close()
     pool.join()
-    distances = []
-    for pr in pool_results:
-        distances.append(mean(pr[1]))
+    distances = zeros((ntrains, ntrains))
+    for idx, pr in zip(pair_idces, pool_results):
+        i, j = idx
+        distances[i,j] = mean(pr)
+        distances[j,i] = mean(pr)  # redundant, but will probably help
     return distances
 
 def calcslopes(vmon, spikemon):
@@ -194,7 +201,7 @@ tau = 20*ms
 Nnrns = 5
 Ningroups = 2
 Nin = 100
-fin = 1*Hz
+fin = 10*Hz
 Sin = 0.1
 sigma = 0*ms
 weight = 1.0*mV
@@ -243,8 +250,6 @@ network.add(spikemon)
 print("Running simulation for %s ..." % (duration))
 network.run(duration, report="stdout")
 print("Done. Computing results ...")
-
-
 inpsignal = gen_population_signal(*inpmons)
 t = arange(0*second, duration, dt)
 if spikemon.nspikes:
