@@ -62,8 +62,8 @@ def dist_inputs(idxes, distmatrix):
     pairs = list(it.combinations(idxes, 2))
     dist_sum = zeros(nkreuzsamples)
     for i, j in pairs:
-        a = i[0]*Nin+i[1]
-        b = j[0]*Nin+j[1]
+        a = i[0]*Nin_per_group+i[1]
+        b = j[0]*Nin_per_group+j[1]
         dist_sum += distmatrix[a,b]
     dist_mean = dist_sum/len(pairs)
     return dist_mean
@@ -186,17 +186,17 @@ def find_input_set(slopes, outspikes_idx, inpmons):
     potential at each spike time.
     """
     # Since the GA uses fixes length chromosomes, I'm going to assume I know
-    # that the number of inputs is Nconn*Ningroups
+    # that the number of inputs is Nin
     # TODO: Implement variable length chromosomes (in quickga)
     # On the other hand, I can have fixed length chromosome with length equal
     # to the number of inputs in total, that is just a bit string (on/off per
     # input index)
     maxpop = 100
-    chromlength = Nconn*Ningroups
+    chromlength = Nin
     mutation_prob = 0.01
     mutation_strength = 10
     genemin = 0
-    genemax = Ningroups*Nin-1  # genemax is inclusive
+    genemax = Ningroups*Nin_per_group-1  # genemax is inclusive
     outfile = "ga_input_set.log"
     ga = GA(maxpop, chromlength, mutation_probability=mutation_prob,
             mutation_strength=mutation_strength, genemin=genemin,
@@ -216,8 +216,8 @@ def fitnessfunc(individual, slopes, outspikes_idx, inpmons):
     binnedcounts = zeros(nbins)
     try:
         for idx in inputidces:
-            ingrpid = int(idx/Nin)
-            inpidx = idx%Nin
+            ingrpid = int(idx/Nin_per_group)
+            inpidx = idx%Nin_per_group
             inputgroup = inpmons[ingrpid]
             inspikes = inputgroup[inpidx]
             binnedcounts += sl.tools.times_to_bin(inspikes, dt, duration)
@@ -234,20 +234,20 @@ print("Preparing simulation ...")
 doplot = True
 network = Network()
 defaultclock.dt = dt = 0.1*ms
-duration = 1*second
+duration = 5*second
 w = 2*ms
 nkreuzsamples = 100
 Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
 Nnrns = 5
-Ningroups = 2
-Nin = 100
+Ningroups = 10
+Nin_per_group = 20
 fin = 10*Hz
-Sin = 0.1
+Sin = 0.7
 sigma = 0*ms
-weight = 1.0*mV
-Nconn = 50  # number of connections each cell receives from each group
+weight = 2.0*mV
+Nin = 50  # total number of connections each cell receives
 
 lifeq_exc = Equations("dV/dt = (Vrest-V)/tau : volt")
 lifeq_exc.prepare()
@@ -259,7 +259,7 @@ print("Setting up inputs and connections ...")
 ingroups = []
 inpconns = []
 for ing in range(Ningroups):
-    ingroup = sl.tools.fast_synchronous_input_gen(Nin, fin,
+    ingroup = sl.tools.fast_synchronous_input_gen(Nin_per_group, fin,
                                                   Sin, sigma, duration,
                                                   shuffle=False)
     inpconn = Connection(ingroup, nrngroup, 'V')
@@ -268,18 +268,18 @@ for ing in range(Ningroups):
 inputneurons = []
 # CONNECTIONS
 for nrn in range(Nnrns):
-    inputids = random.choice(range(Nin*Ningroups), Nconn*Ningroups,
+    inputids = random.choice(range(Nin_per_group*Ningroups), Nin,
                                 replace=False)
     inpnrns_row = []
     for inp in inputids:
-        inpgroup = int(inp/Nin)
-        inpidx = inp%Nin
+        inpgroup = int(inp/Nin_per_group)
+        inpidx = inp%Nin_per_group
         inpnrns_row.append((inpgroup, inpidx))
         inpconns[inpgroup][inpidx, nrn] = weight
     inputneurons.append(inpnrns_row)
 network.add(*ingroups)
 network.add(*inpconns)
-asympt_v = fin*weight*tau*Nconn*Ningroups
+asympt_v = fin*weight*tau*Nin
 print("Asymptotic threshold-free membrane potential: %s" % (asympt_v))
 
 print("Setting up monitors ...")
@@ -392,7 +392,7 @@ if doplot:
 #    optimisers.append(ga)
 #    # count hits for best individual
 #    best_ind = ga.alltime_bestind
-#    best_inputs = [(int(gene/Nin), int(gene%Nin))
+#    best_inputs = [(int(gene/Nin_per_group), int(gene%Nin_per_group))
 #                   for gene in best_ind.chromosome]
 #    hits = [1 if pair in inputneurons[idx] else 0
 #            for pair in best_inputs]
