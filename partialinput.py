@@ -4,7 +4,7 @@ from brian import (Network, Equations, NeuronGroup, SpikeMonitor, StateMonitor,
                    Connection, raster_plot,
                    defaultclock, second, ms, mV, Hz)
 from numpy import (arange, zeros, exp, convolve, array, mean, corrcoef, random,
-                   shape)
+                   shape, linspace, append)
 from matplotlib import pyplot
 import itertools as it
 import multiprocessing as mp
@@ -39,18 +39,19 @@ def gen_input_signals(idxlist, *spikemons):
     for targetinputs in idxlist:
         binnedcounts = zeros(nbins)
         for ingrpid, inpidx in targetinputs:
-            inputgroup = spikemons[ingrpid]
-            inspikes = inputgroup[inpidx]
+            inspikes = spikemons[ingrpid][inpidx]
             binnedcounts += sl.tools.times_to_bin(inspikes, dt, duration)
         signal = convolve(binnedcounts, kernel)
         inpsignals.append(signal)
     return inpsignals
 
 def dist_global(distmatrix):
-    """Global distance is just the average across pairs"""
+    """
+    Global distance is just the average across pairs
+    """
     dshape = shape(distmatrix)
     newshape = (dshape[0]*dshape[1], dshape[2])
-    distmatrix.reshape(newshape)
+    distmatrix = distmatrix.reshape(newshape)
     gdist = mean(distmatrix, 0)
     return gdist
 
@@ -61,9 +62,32 @@ def dist_inputs(idxes, distmatrix):
     pairs = list(it.combinations(idxes, 2))
     dist_sum = zeros(nkreuzsamples)
     for i, j in pairs:
-        dist_sum += distmatrix[i,j]
+        print(i,j)
+        a = i[0]*Nin+i[1]
+        b = j[0]*Nin+j[1]
+        print(a,b)
+        dist_sum += distmatrix[a,b]
     dist_mean = dist_sum/len(pairs)
     return dist_mean
+
+def dist_inputs_interval(idxlist, outspikemon, *spikemons):
+    """
+    Calculates distances of inputs for each neuron, using the interval method,
+    which segments the input spike trains based on the output.
+    This requires calculating a separate distance matrix for each output cell.
+    This function returns the averaged distances directly, not a matrix of
+    calculated paired distances.
+    """
+    inputdists = []
+    outspikes = outspikemon.spiketimes.values()
+    for outsp, cellinputs in zip(outspikes, idxlist):
+        inputtrains = []
+        for ingrpid, inpidx in cellinputs:
+            inputtrains.append(spikemons[ingrpid][inpidx])
+        t, indists = sl.metrics.kreuz.interval(inputtrains, outsp, 10)
+        #inputdists.append(mean(indists, axis=1))
+        inputdists.append(array(indists)[:,-1])
+    return inputdists
 
 def _kreuz_pair(args):
     idces, spiketrains = args
@@ -209,7 +233,7 @@ def fitnessfunc(individual, slopes, outspikes_idx, inpmons):
     individual.fitness = 1-correlation[0,1]
 
 print("Preparing simulation ...")
-doplot = False
+doplot = True
 network = Network()
 defaultclock.dt = dt = 0.1*ms
 duration = 1*second
@@ -225,8 +249,7 @@ fin = 10*Hz
 Sin = 0.1
 sigma = 0*ms
 weight = 1.0*mV
-Nconn = 100  # number of connections each cell receives from each group
-
+Nconn = 50  # number of connections each cell receives from each group
 
 lifeq_exc = Equations("dV/dt = (Vrest-V)/tau : volt")
 lifeq_exc.prepare()
@@ -271,31 +294,42 @@ network.add(spikemon)
 
 print("Running simulation for %s ..." % (duration))
 network.run(duration, report="stdout")
-print("Done. Computing results ...")
+print("Done.\nComputing results ...")
+print("Generating input signal ...")
 inpsignal = gen_population_signal(*inpmons)
+print("Calculating pairwise Kreuz distance of all inputs ...")
+distances = dist_all_pairs(*inpmons)
+kralldist = dist_global(distances)
 t = arange(0*second, duration, dt)
 if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
+    print("Calculating pairwise, interval Kreuz distance for the inputs of each cell ...")
+    #krinpdist = dist_inputs_interval(inputneurons, spikemon, *inpmons)
+    krinpdist = []
+    for inpairs in inputneurons:
+        krinpdist.append(dist_inputs(inpairs, distances))
     printstats(vmon, spikemon)
     mslopes, allslopes = calcslopes(vmon, spikemon)
     inpsignals = gen_input_signals(inputneurons, *inpmons)
-    nplot = 0
+    n = 0
     disc_signals = []
     print("\nCorrelation between input signal and slopes")
     for sp, slopes, insgnl in zip(spikemon.spiketimes.itervalues(),
                                   allslopes,
                                   inpsignals):
-        nplot += 1
         inds = array(sp/dt).astype("int")
         correlation = corrcoef(slopes, insgnl[inds])[0,1]
         disc_signals.append(insgnl[inds])
-        print("%i:\t%.4f" % (nplot-1, correlation))
-        if doplot:
-            pyplot.subplot(Nnrns, 1, nplot)
-            pyplot.plot(sp, slopes/max(slopes))
-            pyplot.plot(sp, insgnl[inds]/max(insgnl))
-            pyplot.axis(xmin=0*second, xmax=duration)
-
+        print("%i:\t%.4f" % (n, correlation))
+        n += 1
+    #print("\nCorrelation between Kreuz distances and slopes")
+    #n = 0
+    #for sp, slopes, inkrz in zip(spikemon.spiketimes.itervalues(),
+    #                             allslopes,
+    #                             krinpdist):
+    #    correlation = corrcoef(slopes[1:], inkrz)[0,1]
+    #    print("%i:\t%.4f" % (n, correlation))
+    #    n += 1
 
 if doplot:
     pyplot.ion()
@@ -322,7 +356,34 @@ if doplot:
     pyplot.plot(t, inpsignal[:len(t)])
 # membrane potential slopes with individual input signals
     pyplot.figure("Slopes and signals")
-
+    nplot = 0
+    if spikemon.nspikes:
+        for sp, slopes, insgnl in zip(spikemon.spiketimes.itervalues(),
+                                      allslopes,
+                                      inpsignals):
+            nplot += 1
+            inds = array(sp/dt).astype("int")
+            pyplot.subplot(Nnrns, 1, nplot)
+            pyplot.plot(sp, slopes)
+            pyplot.plot(sp, insgnl[inds]/max(insgnl))
+            pyplot.axis(xmin=0*second, xmax=duration)
+# global kreuz distance
+    t_kreuz = linspace(0*ms, duration, nkreuzsamples+1)[1:]
+    pyplot.figure("Kreuz global")
+    pyplot.title("Kreuz global")
+    pyplot.plot(t_kreuz, kralldist)
+# membrane potential slopes with individual distances
+    pyplot.figure("Slopes and dists")
+    nplot = 0
+    if spikemon.nspikes:
+        for sp, slopes, inkrz in zip(spikemon.spiketimes.itervalues(),
+                                     allslopes,
+                                     krinpdist):
+            nplot += 1
+            pyplot.subplot(Nnrns, 1, nplot)
+            pyplot.plot(sp, slopes)
+            #pyplot.plot(sp, append(0, inkrz))
+            pyplot.plot(t_kreuz, inkrz)
 
 #optimisers = []
 #for idx in range(Nnrns):
