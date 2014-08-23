@@ -62,10 +62,8 @@ def dist_inputs(idxes, distmatrix):
     pairs = list(it.combinations(idxes, 2))
     dist_sum = zeros(nkreuzsamples)
     for i, j in pairs:
-        print(i,j)
         a = i[0]*Nin+i[1]
         b = j[0]*Nin+j[1]
-        print(a,b)
         dist_sum += distmatrix[a,b]
     dist_mean = dist_sum/len(pairs)
     return dist_mean
