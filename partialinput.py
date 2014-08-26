@@ -4,7 +4,7 @@ from brian import (Network, Equations, NeuronGroup, SpikeMonitor, StateMonitor,
                    Connection, raster_plot,
                    defaultclock, second, ms, mV, Hz)
 import numpy as np
-from matplotlib import pyplot
+from matplotlib import pyplot, mlab
 import itertools as it
 import multiprocessing as mp
 import spikerlib as sl
@@ -78,6 +78,9 @@ def dist_inputs_interval(idxlist, outspikemon, *spikemons):
     inputdists = []
     outspikes = outspikemon.spiketimes.values()
     for outsp, cellinputs in zip(outspikes, idxlist):
+        if len(outsp) == 0:
+            inputdists.append(-1)
+            continue
         inputtrains = []
         for ingrpid, inpidx in cellinputs:
             inputtrains.append(spikemons[ingrpid][inpidx])
@@ -124,7 +127,6 @@ def calcslopes(vmon, spikemon):
     Calculate slopes (non normalised, for now)
 
     Returns average slopes (per cell) and individual slope values (flattened)
-    TODO: Calculate normalised slopes
     """
     allslopes = []
     avgslopes = []
@@ -229,24 +231,39 @@ def fitnessfunc(individual, slopes, outspikes_idx, inpmons):
     correlation = np.corrcoef(slopes, signal_disc)
     individual.fitness = 1-correlation[0,1]
 
+def movingavg(allslopes, allkreuz, a, b):
+    for win in range(a, b):
+        masl = [mlab.movavg(sl, win) for sl in allslopes]
+        makr = [mlab.movavg(kr, win) for kr in allkreuz]
+        corrs = [np.corrcoef(sl, kr)[1,0] for sl, kr in zip(masl, makr)]
+        print("%i" % win)
+        print(", ".join(str(cr) for cr in corrs))
+        print("--------------------")
+        pyplot.figure()
+        pyplot.title("Mov avg window = %i" % win)
+        for idx in range(len(allslopes)):
+            pyplot.subplot(len(allslopes), 1, idx)
+            pyplot.plot(masl[idx])
+            pyplot.plot(makr[idx]/max(makr[idx]))
+
 print("Preparing simulation ...")
 doplot = True
 network = Network()
 defaultclock.dt = dt = 0.1*ms
 duration = 5*second
 w = 2*ms
-nkreuzsamples = 100
+nkreuzsamples = 1
 Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
-Nnrns = 5
-Ningroups = 10
-Nin_per_group = 20
-fin = 10*Hz
-Sin = 0.7
+Nnrns = 10
+Ningroups = 2
+Nin_per_group = 50
+fin = 20*Hz
+Sin = [1.0, 0]
 sigma = 0*ms
 weight = 2.0*mV
-Nin = 50  # total number of connections each cell receives
+Nin = 25  # total number of connections each cell receives
 
 lifeq_exc = Equations("dV/dt = (Vrest-V)/tau : volt")
 lifeq_exc.prepare()
@@ -259,7 +276,7 @@ ingroups = []
 inpconns = []
 for ing in range(Ningroups):
     ingroup = sl.tools.fast_synchronous_input_gen(Nin_per_group, fin,
-                                                  Sin, sigma, duration,
+                                                  Sin[ing], sigma, duration,
                                                   shuffle=False)
     inpconn = Connection(ingroup, nrngroup, 'V')
     ingroups.append(ingroup)
@@ -280,6 +297,8 @@ network.add(*ingroups)
 network.add(*inpconns)
 asympt_v = fin*weight*tau*Nin
 print("Asymptotic threshold-free membrane potential: %s" % (asympt_v))
+max_volley = max(Sin)*Nin*weight
+print("Max spike volley potential: %s" % (max_volley))
 
 print("Setting up monitors ...")
 inpmons = [SpikeMonitor(ing) for ing in ingroups]
@@ -294,14 +313,13 @@ network.run(duration, report="stdout")
 print("Done.\nComputing results ...")
 print("Generating input signal ...")
 inpsignal = gen_population_signal(*inpmons)
-print("Calculating pairwise Kreuz distance of all inputs ...")
-distances = dist_all_pairs(*inpmons)
-kralldist = dist_global(distances)
+#print("Calculating pairwise Kreuz distance of all inputs ...")
+#distances = dist_all_pairs(*inpmons)
+#kralldist = dist_global(distances)
 t = np.arange(0*second, duration, dt)
 if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
     print("Calculating pairwise, interval Kreuz distance for the inputs of each cell ...")
-    TODO: MAKE SURE WE ARE CALCULATING INTERVAL DISTANCE PROPERLY
     krinpdist = dist_inputs_interval(inputneurons, spikemon, *inpmons)
     #krinpdist = []
     #for inpairs in inputneurons:
@@ -320,13 +338,11 @@ if spikemon.nspikes:
         disc_signals.append(insgnl[inds])
         print("%i:\t%.4f" % (n, correlation))
         n += 1
-    maxkr = np.max(krinpdist)
+    maxkr = max([max(kr) for kr in krinpdist])
     kr_rescaled = np.array([np.sqrt(1-kr/maxkr) for kr in krinpdist])
     print("\nCorrelation between Kreuz distances and slopes")
     n = 0
-    for sp, slopes, kr_rsc in zip(spikemon.spiketimes.itervalues(),
-                                 allslopes,
-                                 kr_rescaled):
+    for slopes, kr_rsc in zip(allslopes, kr_rescaled):
         correlation = np.corrcoef(slopes[1:], kr_rsc)[0,1]
         print("%i:\t%.4f" % (n, correlation))
         n += 1
@@ -347,9 +363,11 @@ if doplot:
 # voltages of target neurons
     pyplot.figure("Voltages")
     pyplot.title("Membrane potential traces")
-    vmon.plot()
-    pyplot.plot([0*second, duration], [Vth, Vth], 'k--')
-    pyplot.legend()
+    for idx in range(Nnrns):
+        pyplot.subplot(Nnrns, 1, idx+1)
+        pyplot.plot(vmon.times, vmon[idx])
+        pyplot.plot([0*second, duration], [Vth, Vth], 'k--')
+        pyplot.axis(ymax=float(Vth*2))
 # global input population signal (exponential convolution)
     pyplot.figure("Input signal")
     pyplot.title("Input signal")
@@ -368,10 +386,10 @@ if doplot:
             pyplot.plot(sp, insgnl[inds]/max(insgnl))
             pyplot.axis(xmin=0*second, xmax=duration)
 # global kreuz distance
-    t_kreuz = np.linspace(0*ms, duration, nkreuzsamples+1)[1:]
-    pyplot.figure("Kreuz global")
-    pyplot.title("Kreuz global")
-    pyplot.plot(t_kreuz, kralldist)
+#    t_kreuz = np.linspace(0*ms, duration, nkreuzsamples+1)[1:]
+#    pyplot.figure("Kreuz global")
+#    pyplot.title("Kreuz global")
+#    pyplot.plot(t_kreuz, kralldist)
 # membrane potential slopes with individual distances
     pyplot.figure("Slopes and dists (rescaled)")
     nplot = 0
@@ -382,8 +400,8 @@ if doplot:
             nplot += 1
             pyplot.subplot(Nnrns, 1, nplot)
             pyplot.plot(sp, slopes)
-            #pyplot.plot(sp, append(0, inkrz))
-            pyplot.plot(t_kreuz, kr_rsc)
+            pyplot.plot(sp, np.append(0, kr_rsc))
+            #pyplot.plot(t_kreuz, kr_rsc)
 
 #optimisers = []
 #for idx in range(Nnrns):
