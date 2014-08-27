@@ -124,7 +124,7 @@ def dist_all_pairs(*spikemons):
 
 def calcslopes(vmon, spikemon):
     """
-    Calculate slopes (non normalised, for now)
+    Calculate NPSS.
 
     Returns average slopes (per cell) and individual slope values (flattened)
     """
@@ -209,6 +209,7 @@ def find_input_set(slopes, outspikes_idx, inpmons):
     # rounds
     return ga
 
+# TODO: KREUZ KREUZ KREUZ
 def fitnessfunc(individual, slopes, outspikes_idx, inpmons):
     inputidces = individual.chromosome
     kwidth = 10*tau
@@ -231,36 +232,27 @@ def fitnessfunc(individual, slopes, outspikes_idx, inpmons):
     correlation = np.corrcoef(slopes, signal_disc)
     individual.fitness = 1-correlation[0,1]
 
-def movingavg(allslopes, allkreuz, a, b):
-    for win in range(a, b):
-        masl = [mlab.movavg(sl, win) for sl in allslopes]
-        makr = [mlab.movavg(kr, win) for kr in allkreuz]
-        corrs = [np.corrcoef(sl, kr)[1,0] for sl, kr in zip(masl, makr)]
-        print("%i" % win)
-        print(", ".join(str(cr) for cr in corrs))
-        print("--------------------")
-        pyplot.figure()
-        pyplot.title("Mov avg window = %i" % win)
-        for idx in range(len(allslopes)):
-            pyplot.subplot(len(allslopes), 1, idx)
-            pyplot.plot(masl[idx])
-            pyplot.plot(makr[idx]/max(makr[idx]))
+def cor_movavg(allslopes, allkreuz, win):
+    masl = [mlab.movavg(sl, win) for sl in allslopes]
+    makr = [mlab.movavg(kr, win) for kr in allkreuz]
+    corrs = [np.corrcoef(sl, kr)[1,0] for sl, kr in zip(masl, makr)]
+    return corrs
 
 print("Preparing simulation ...")
 doplot = True
 network = Network()
 defaultclock.dt = dt = 0.1*ms
-duration = 5*second
+duration = 10*second
 w = 2*ms
 nkreuzsamples = 1
 Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
 Nnrns = 10
-Ningroups = 2
+Ningroups = 10
 Nin_per_group = 50
 fin = 20*Hz
-Sin = [1.0, 0]
+Sin = np.linspace(0, 1, Ningroups)
 sigma = 0*ms
 weight = 2.0*mV
 Nin = 25  # total number of connections each cell receives
@@ -310,40 +302,25 @@ network.add(spikemon)
 
 print("Running simulation for %s ..." % (duration))
 network.run(duration, report="stdout")
-print("Done.\nComputing results ...")
+print("Done.")
+
+###### THE OTHER STUFF ######
+
+print("Computing results ...")
 print("Generating input signal ...")
-inpsignal = gen_population_signal(*inpmons)
-#print("Calculating pairwise Kreuz distance of all inputs ...")
-#distances = dist_all_pairs(*inpmons)
-#kralldist = dist_global(distances)
 t = np.arange(0*second, duration, dt)
 if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
     print("Calculating pairwise, interval Kreuz distance for the inputs of each cell ...")
     krinpdist = dist_inputs_interval(inputneurons, spikemon, *inpmons)
-    #krinpdist = []
-    #for inpairs in inputneurons:
-    #    krinpdist.append(dist_inputs(inpairs, distances))
     printstats(vmon, spikemon)
     mslopes, allslopes = calcslopes(vmon, spikemon)
-    inpsignals = gen_input_signals(inputneurons, *inpmons)
     n = 0
     disc_signals = []
-    print("\nCorrelation between input signal and slopes")
-    for sp, slopes, insgnl in zip(spikemon.spiketimes.itervalues(),
-                                  allslopes,
-                                  inpsignals):
-        inds = np.array(sp/dt).astype("int")
-        correlation = np.corrcoef(slopes, insgnl[inds])[0,1]
-        disc_signals.append(insgnl[inds])
-        print("%i:\t%.4f" % (n, correlation))
-        n += 1
-    maxkr = max([max(kr) for kr in krinpdist])
-    kr_rescaled = np.array([np.sqrt(1-kr/maxkr) for kr in krinpdist])
     print("\nCorrelation between Kreuz distances and slopes")
     n = 0
-    for slopes, kr_rsc in zip(allslopes, kr_rescaled):
-        correlation = np.corrcoef(slopes[1:], kr_rsc)[0,1]
+    for slopes, kr in zip(allslopes, krinpdist):
+        correlation = np.corrcoef(slopes[1:], kr)[0,1]
         print("%i:\t%.4f" % (n, correlation))
         n += 1
 
@@ -361,47 +338,26 @@ if doplot:
     raster_plot(spikemon)
     pyplot.axis(xmin=0, xmax=duration/ms)
 # voltages of target neurons
-    pyplot.figure("Voltages")
-    pyplot.title("Membrane potential traces")
-    for idx in range(Nnrns):
-        pyplot.subplot(Nnrns, 1, idx+1)
-        pyplot.plot(vmon.times, vmon[idx])
-        pyplot.plot([0*second, duration], [Vth, Vth], 'k--')
-        pyplot.axis(ymax=float(Vth*2))
-# global input population signal (exponential convolution)
-    pyplot.figure("Input signal")
-    pyplot.title("Input signal")
-    pyplot.plot(t, inpsignal[:len(t)])
-# membrane potential slopes with individual input signals
-    pyplot.figure("Slopes and signals (normalised)")
-    nplot = 0
-    if spikemon.nspikes:
-        for sp, slopes, insgnl in zip(spikemon.spiketimes.itervalues(),
-                                      allslopes,
-                                      inpsignals):
-            nplot += 1
-            inds = np.array(sp/dt).astype("int")
-            pyplot.subplot(Nnrns, 1, nplot)
-            pyplot.plot(sp, slopes)
-            pyplot.plot(sp, insgnl[inds]/max(insgnl))
-            pyplot.axis(xmin=0*second, xmax=duration)
-# global kreuz distance
-#    t_kreuz = np.linspace(0*ms, duration, nkreuzsamples+1)[1:]
-#    pyplot.figure("Kreuz global")
-#    pyplot.title("Kreuz global")
-#    pyplot.plot(t_kreuz, kralldist)
+    if Nnrns < 10:
+        # skip plotting if too many
+        pyplot.figure("Voltages")
+        pyplot.title("Membrane potential traces")
+        for idx in range(Nnrns):
+            pyplot.subplot(Nnrns, 1, idx+1)
+            pyplot.plot(vmon.times, vmon[idx])
+            pyplot.plot([0*second, duration], [Vth, Vth], 'k--')
+            pyplot.axis(ymax=float(Vth*2))
 # membrane potential slopes with individual distances
-    pyplot.figure("Slopes and dists (rescaled)")
+    pyplot.figure("Slopes and distances")
     nplot = 0
     if spikemon.nspikes:
-        for sp, slopes, kr_rsc, in zip(spikemon.spiketimes.itervalues(),
+        for sp, slopes, kr, in zip(spikemon.spiketimes.itervalues(),
                                        allslopes,
-                                       kr_rescaled):
+                                       krinpdist):
             nplot += 1
             pyplot.subplot(Nnrns, 1, nplot)
             pyplot.plot(sp, slopes)
-            pyplot.plot(sp, np.append(0, kr_rsc))
-            #pyplot.plot(t_kreuz, kr_rsc)
+            pyplot.plot(sp, kr)
 
 #optimisers = []
 #for idx in range(Nnrns):
