@@ -87,6 +87,7 @@ def dist_inputs_interval(idxlist, outspikemon, *spikemons):
         t, indists = sl.metrics.kreuz.interval(inputtrains, outsp, nkreuzsamples)
         inputdists.append(np.mean(indists, axis=1))
         #inputdists.append(np.array(indists)[:,-1])
+        print("%i/%i ..." % (len(inputdists), Nnrns))
     return inputdists
 
 def _kreuz_pair(args):
@@ -136,6 +137,7 @@ def calcslopes(vmon, spikemon):
             avgslopes.append([])
             continue
         slopes = sl.tools.npss(trace, spikes, Vrest, Vth, tau, w, dt)
+        slopes = slopes[1:]
         allslopes.append(slopes)
         avgslopes.append(np.mean(slopes))
     return avgslopes, allslopes
@@ -239,20 +241,20 @@ def cor_movavg(allslopes, allkreuz, win):
     return corrs
 
 print("Preparing simulation ...")
-doplot = True
+doplot = False
 network = Network()
 defaultclock.dt = dt = 0.1*ms
-duration = 10*second
+duration = 1*second
 w = 2*ms
-nkreuzsamples = 1
+nkreuzsamples = 3
 Vrest = 0*mV
 Vth = 20*mV
 tau = 20*ms
-Nnrns = 10
-Ningroups = 10
-Nin_per_group = 50
+Nnrns = 4
+Ningroups = 1
+Nin_per_group = 3000
 fin = 20*Hz
-Sin = np.linspace(0, 1, Ningroups)
+ingroup_sync = [0.5]
 sigma = 0*ms
 weight = 2.0*mV
 Nin = 25  # total number of connections each cell receives
@@ -268,16 +270,26 @@ ingroups = []
 inpconns = []
 for ing in range(Ningroups):
     ingroup = sl.tools.fast_synchronous_input_gen(Nin_per_group, fin,
-                                                  Sin[ing], sigma, duration,
+                                                  ingroup_sync[ing], sigma, duration,
                                                   shuffle=False)
     inpconn = Connection(ingroup, nrngroup, 'V')
     ingroups.append(ingroup)
     inpconns.append(inpconn)
 inputneurons = []
+
 # CONNECTIONS
+Sin = []
 for nrn in range(Nnrns):
-    inputids = np.random.choice(range(Nin_per_group*Ningroups), Nin,
-                                replace=False)
+    #inputids = np.random.choice(range(Nin_per_group*Ningroups), Nin,
+    #                            replace=False)
+    cur_sin = np.random.rand()
+    Sin.append(cur_sin)
+    Nallin = Nin_per_group*Ningroups
+    Nsync = int(Nin*cur_sin)
+    Nrand = Nin-Nsync
+    randids = np.random.choice(range(0, Nallin//2), Nrand, replace=False)
+    syncids = np.random.choice(range(Nallin//2, Nallin), Nsync, replace=False)
+    inputids = np.append(syncids, randids)
     inpnrns_row = []
     for inp in inputids:
         inpgroup = int(inp/Nin_per_group)
@@ -285,11 +297,26 @@ for nrn in range(Nnrns):
         inpnrns_row.append((inpgroup, inpidx))
         inpconns[inpgroup][inpidx, nrn] = weight
     inputneurons.append(inpnrns_row)
+
+fake_inputneurons = []
+for cur_sin in Sin:
+    Nallin = Nin_per_group*Ningroups
+    Nsync = int(Nin*cur_sin)
+    Nrand = Nin-Nsync
+    randids = np.random.choice(range(0, Nallin//2), Nrand, replace=False)
+    syncids = np.random.choice(range(Nallin//2, Nallin), Nsync, replace=False)
+    inputids = np.append(syncids, randids)
+    inpnrns_row = []
+    for inp in inputids:
+        inpgroup = int(inp/Nin_per_group)
+        inpidx = inp%Nin_per_group
+        inpnrns_row.append((inpgroup, inpidx))
+    fake_inputneurons.append(inpnrns_row)
 network.add(*ingroups)
 network.add(*inpconns)
 asympt_v = fin*weight*tau*Nin
 print("Asymptotic threshold-free membrane potential: %s" % (asympt_v))
-max_volley = max(Sin)*Nin*weight
+max_volley = max(ingroup_sync)*Nin*weight
 print("Max spike volley potential: %s" % (max_volley))
 
 print("Setting up monitors ...")
@@ -307,7 +334,6 @@ print("Done.")
 ###### THE OTHER STUFF ######
 
 print("Computing results ...")
-print("Generating input signal ...")
 t = np.arange(0*second, duration, dt)
 if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
@@ -320,9 +346,16 @@ if spikemon.nspikes:
     print("\nCorrelation between Kreuz distances and slopes")
     n = 0
     for slopes, kr in zip(allslopes, krinpdist):
-        correlation = np.corrcoef(slopes[1:], kr)[0,1]
+        correlation = np.corrcoef(slopes, kr)[0,1]
         print("%i:\t%.4f" % (n, correlation))
         n += 1
+    print("\nCorrelations between moving averages")
+    minspikes = min([len(sp) for sp in spikemon.spiketimes.itervalues()])
+    for win in np.linspace(1, minspikes/2, 3):
+        print("\nWindow length: %i" % win)
+        corrs = cor_movavg(allslopes, krinpdist, win)
+        for n, c in enumerate(corrs):
+            print("%i\t%.4f" % (n, c))
 
 if doplot:
     pyplot.ion()
@@ -356,8 +389,8 @@ if doplot:
                                        krinpdist):
             nplot += 1
             pyplot.subplot(Nnrns, 1, nplot)
-            pyplot.plot(sp, slopes)
-            pyplot.plot(sp, kr)
+            pyplot.plot(sp[1:], slopes)
+            pyplot.plot(sp[1:], kr)
 
 #optimisers = []
 #for idx in range(Nnrns):
