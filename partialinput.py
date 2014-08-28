@@ -44,17 +44,17 @@ def gen_input_signals(idxlist, *spikemons):
         inpsignals.append(signal)
     return inpsignals
 
-def dist_global(distmatrix):
+def dist_global(dist_array):
     """
     Global distance is just the average across pairs
     """
-    dshape = np.shape(distmatrix)
+    dshape = np.shape(dist_array)
     newshape = (dshape[0]*dshape[1], dshape[2])
-    distmatrix = distmatrix.reshape(newshape)
-    gdist = np.mean(distmatrix, 0)
+    dist_array = dist_array.reshape(newshape)
+    gdist = np.mean(dist_array, 0)
     return gdist
 
-def dist_inputs(idxes, distmatrix):
+def dist_inputs(idxes, dist_array):
     """
     Average distance between all pairs of input spike trains specified by idxes
     """
@@ -63,17 +63,72 @@ def dist_inputs(idxes, distmatrix):
     for i, j in pairs:
         a = i[0]*Nin_per_group+i[1]
         b = j[0]*Nin_per_group+j[1]
-        dist_sum += distmatrix[a,b]
+        dist_sum += dist_array[a,b]
     dist_mean = dist_sum/len(pairs)
     return dist_mean
 
-def dist_inputs_interval(idxlist, outspikemon, *spikemons):
+def calc_new_pairs(idxlist, outspikemon, spikemons):
+    """
+    Returns a new distance matrix with all pairwise distances found in `idxlist`
+    calculated.
+    """
+    global distmatrix
+    outspikes = outspikemon.spiketimes.values()
+    for pair in it.combinations(idxlist):
+        one, two = pair
+        if one == two: continue  # dist = 0, just carry on
+        if distmatrix[one, two] > -1: continue  # not new
+        one = (int(one//Nin_per_group), one%Nin_per_group)
+        two = (int(two//Nin_per_group), two%Nin_per_group)
+        input_a = spikemons[one]
+        input_b = spikemons[two]
+        input_a = input_a.spiketimes.values()
+        input_b = input_b.spiketimes.values()
+        newdist = sl.metrics.kreuz.interval([input_a, input_b], outspikes)
+        distmatrix[one, two] = newdist
+        distmatrix[two, one] = newdist
+
+def dist_inputs_interval(idxlist, outspikemon, spikemons):
+    """
+    Returns the average pairwise distance between the inputs of a neuron,
+    using the interval method, which segments the input spike trains based on
+    the output.  Distances between pairs are saved in a matrix, symmetrically,
+    in order to avoid recalculating known pairs. This is done to speed up the
+    search when searching for an input group with the GA.
+
+    The `idxlist` uses flat indexing, i.e., it is a list of numbers in the
+    range [0, Nallin) and not tuples of (Neurongroup number, Neuron index)
+    pairs.
+    """
+    global distmatrix
+    if distmatrix is None:
+        # initialise distance matrix (actually, numpy array)
+        # -1 values indicate the pair has not been evaluated yet
+        distmatrix = np.zeros((Nallin, Nallin))-1
+        for i in range(Nallin):
+            distmatrix[i,i] = 0
+    calc_new_pairs(idxlist, outspikemon, spikemons)
+    total_dist = 0
+    count = 0
+    for pair in it.combinations(idxlist, 2):
+        i, j = pair
+        total_dist += distmatrix[i,j]
+        count += 1
+    return total_dist/count
+
+def dist_inputs_interval_all(idxlist, outspikemon, *spikemons):
     """
     Calculates distances of inputs for each neuron, using the interval method,
     which segments the input spike trains based on the output.
     This requires calculating a separate distance matrix for each output cell.
     This function returns the averaged distances directly, not a matrix of
     calculated paired distances.
+
+    Unlike `dist_inputs_interval`, this function calculates the distances for
+    multiple target (receiving) neurons and doesn't save the distances between
+    each pair of input. The `idxlist` argument is a list of lists of tuples.
+    Each tuple is a (Neurongroup number, Neuron index) pair and each list
+    groups all the inputs of a neuron.
     """
     inputdists = []
     outspikes = outspikemon.spiketimes.values()
@@ -179,7 +234,7 @@ def printstats(vmon, spikemon):
     for idx, corr in enumerate(xcorrs):
         print(str(idx)+"\t"+"\t".join("%.2f" % c for c in corr))
 
-def find_input_set(slopes, outspikes_idx, inpmons):
+def find_input_set(slopes, outspikemon, inpmons):
     """
     Find set of inputs that maximises the correlation between input and slopes
 
@@ -193,7 +248,7 @@ def find_input_set(slopes, outspikes_idx, inpmons):
     # TODO: Implement variable length chromosomes (in quickga)
     # On the other hand, I can have fixed length chromosome with length equal
     # to the number of inputs in total, that is just a bit string (on/off per
-    # input index)
+    # input index). This would also take care of not allowing duplicates.
     maxpop = 100
     chromlength = Nin
     mutation_prob = 0.01
@@ -205,40 +260,27 @@ def find_input_set(slopes, outspikes_idx, inpmons):
             mutation_strength=mutation_strength, genemin=genemin,
             genemax=genemax, logfile=outfile, genetype=int)
     ga.fitnessfunc = fitnessfunc
-    ga.optimise(1000, slopes, outspikes_idx, inpmons)
+    ga.optimise(1000, slopes, outspikemon, inpmons)
     # could just return population, but returning entire class is better for
     # checking on all individuals and maybe running a few more optimisation
     # rounds
     return ga
 
-# TODO: KREUZ KREUZ KREUZ
-def fitnessfunc(individual, slopes, outspikes_idx, inpmons):
+def fitnessfunc(individual, slopes, outspikemon, inpmons):
+    win = outspikemon.nspikes//2
     inputidces = individual.chromosome
-    kwidth = 10*tau
-    kernel = np.exp(-np.arange(0*second, kwidth, dt)/tau)
-    nbins = int(duration/dt)
-    binnedcounts = np.zeros(nbins)
-    try:
-        for idx in inputidces:
-            ingrpid = int(idx/Nin_per_group)
-            inpidx = idx%Nin_per_group
-            inputgroup = inpmons[ingrpid]
-            inspikes = inputgroup[inpidx]
-            binnedcounts += sl.tools.times_to_bin(inspikes, dt, duration)
-    except IndexError:
-        print(idx)
-        print(ingrpid)
-        raise
-    signal = np.convolve(binnedcounts, kernel)
-    signal_disc = signal[outspikes_idx]
-    correlation = np.corrcoef(slopes, signal_disc)
+    input_dist = dist_inputs_interval(inputidces, outspikemon, inpmons)
+    correlation = cor_movavg(slopes, input_dist, win)
     individual.fitness = 1-correlation[0,1]
 
-def cor_movavg(allslopes, allkreuz, win):
-    masl = [mlab.movavg(sl, win) for sl in allslopes]
-    makr = [mlab.movavg(kr, win) for kr in allkreuz]
-    corrs = [np.corrcoef(sl, kr)[1,0] for sl, kr in zip(masl, makr)]
-    return corrs
+
+def cor_movavg(slopes, kreuz, win):
+    masl = mlab.movavg(slopes, win)
+    makr = mlab.movavg(kreuz, win)
+    return np.corrcoef(masl, makr)[1,0]
+
+def cor_movavg_all(allslopes, allkreuz, win):
+    return [cor_movavg(sl, kr, win) for sl, kr in zip(allslopes, allkreuz)]
 
 print("Preparing simulation ...")
 doplot = False
@@ -257,6 +299,7 @@ fin = 20*Hz
 ingroup_sync = [0.5]
 sigma = 0*ms
 weight = 2.0*mV
+Nallin = Nin_per_group*Ningroups
 Nin = 25  # total number of connections each cell receives
 
 lifeq_exc = Equations("dV/dt = (Vrest-V)/tau : volt")
@@ -284,7 +327,6 @@ for nrn in range(Nnrns):
     #                            replace=False)
     cur_sin = np.random.rand()
     Sin.append(cur_sin)
-    Nallin = Nin_per_group*Ningroups
     Nsync = int(Nin*cur_sin)
     Nrand = Nin-Nsync
     randids = np.random.choice(range(0, Nallin//2), Nrand, replace=False)
@@ -300,7 +342,6 @@ for nrn in range(Nnrns):
 
 fake_inputneurons = []
 for cur_sin in Sin:
-    Nallin = Nin_per_group*Ningroups
     Nsync = int(Nin*cur_sin)
     Nrand = Nin-Nsync
     randids = np.random.choice(range(0, Nallin//2), Nrand, replace=False)
@@ -338,7 +379,8 @@ t = np.arange(0*second, duration, dt)
 if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
     print("Calculating pairwise, interval Kreuz distance for the inputs of each cell ...")
-    krinpdist = dist_inputs_interval(inputneurons, spikemon, *inpmons)
+    krinpdist = dist_inputs_interval_all(inputneurons, spikemon, *inpmons)
+    meankr = [np.mean(kr) for kr in krinpdist]
     printstats(vmon, spikemon)
     mslopes, allslopes = calcslopes(vmon, spikemon)
     n = 0
@@ -353,7 +395,7 @@ if spikemon.nspikes:
     minspikes = min([len(sp) for sp in spikemon.spiketimes.itervalues()])
     for win in np.linspace(1, minspikes/2, 3):
         print("\nWindow length: %i" % win)
-        corrs = cor_movavg(allslopes, krinpdist, win)
+        corrs = cor_movavg_all(allslopes, krinpdist, win)
         for n, c in enumerate(corrs):
             print("%i\t%.4f" % (n, c))
 
@@ -392,18 +434,20 @@ if doplot:
             pyplot.plot(sp[1:], slopes)
             pyplot.plot(sp[1:], kr)
 
-#optimisers = []
-#for idx in range(Nnrns):
-#    outspikes = spikemon[idx]
-#    outspikes_idx = np.array(outspikes/dt).astype("int")
-#    slopes = allslopes[idx]
-#    ga = find_input_set(slopes, outspikes_idx, inpmons)
-#    optimisers.append(ga)
-#    # count hits for best individual
-#    best_ind = ga.alltime_bestind
-#    best_inputs = [(int(gene/Nin_per_group), int(gene%Nin_per_group))
-#                   for gene in best_ind.chromosome]
-#    hits = [1 if pair in inputneurons[idx] else 0
-#            for pair in best_inputs]
-#    accuracy = sum(hits)/len(hits)
-#    print("Input search for neuron %i --- accuracy %2.2f %%" % (idx, accuracy*100))
+optimisers = []
+global distmatrix
+distmatrix = None
+for idx in range(Nnrns):
+    outspikemon = spikemon[idx]
+    slopes = allslopes[idx]
+    ga = find_input_set(slopes, outspikemon, inpmons)
+    optimisers.append(ga)
+    # count hits for best individual
+    best_ind = ga.alltime_bestind
+    best_inputs = [(int(gene/Nin_per_group), int(gene%Nin_per_group))
+                   for gene in best_ind.chromosome]
+    hits = [1 if pair in inputneurons[idx] else 0
+            for pair in best_inputs]
+    accuracy = sum(hits)/len(hits)
+    print("Input search for neuron %i --- accuracy %2.2f %%" % (idx, accuracy*100))
+    break
