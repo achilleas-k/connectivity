@@ -67,28 +67,41 @@ def dist_inputs(idxes, dist_array):
     dist_mean = dist_sum/len(pairs)
     return dist_mean
 
-def calc_new_pairs(idxlist, outspikemon, spikemons):
+def calc_new_pairs(idxlist, outspikes, spikemons):
     """
     Returns a new distance matrix with all pairwise distances found in `idxlist`
     calculated.
     """
     global distmatrix
-    outspikes = outspikemon.spiketimes.values()
-    for pair in it.combinations(idxlist):
+    global n_pair_calcs
+    global pair_calcs_saved
+    #pool = mp.Pool()
+    for pair in it.combinations(idxlist, 2):
         one, two = pair
         if one == two: continue  # dist = 0, just carry on
-        if distmatrix[one, two] > -1: continue  # not new
-        one = (int(one//Nin_per_group), one%Nin_per_group)
-        two = (int(two//Nin_per_group), two%Nin_per_group)
-        input_a = spikemons[one]
-        input_b = spikemons[two]
-        input_a = input_a.spiketimes.values()
-        input_b = input_b.spiketimes.values()
-        newdist = sl.metrics.kreuz.interval([input_a, input_b], outspikes)
+        if np.any(distmatrix[one, two] > -1):
+            # already calculated
+            pair_calcs_saved += 1
+            continue
+        n_pair_calcs += 1
+        oneg, onei = int(one//Nin_per_group), one%Nin_per_group
+        twog, twoi = int(two//Nin_per_group), two%Nin_per_group
+        input_one = spikemons[oneg][onei]
+        input_two = spikemons[twog][twoi]
+        newdist = sl.metrics.kreuz.interval([input_one, input_two], outspikes)
+        newdist = newdist[1]  # first element is `times`
+        if len(newdist) != len(outspikes)-1:
+            print("WARNING: Lengths don't match")
+            print("Outspikes-1: %i" % (len(outspikes)-1))
+            print("Distances:   %i" % (len(newdist)))
+            print("This may cause, or be indicative of, bugs in the optimiser.")
         distmatrix[one, two] = newdist
         distmatrix[two, one] = newdist
+    # TODO: REMOVE THE FOLLOWING LINES
+    print("Pair calculations so far: %i" % (n_pair_calcs))
+    print("Pair calculations saved:  %i" % (pair_calcs_saved))
 
-def dist_inputs_interval(idxlist, outspikemon, spikemons):
+def dist_inputs_interval(idxlist, outspikes, spikemons):
     """
     Returns the average pairwise distance between the inputs of a neuron,
     using the interval method, which segments the input spike trains based on
@@ -104,10 +117,11 @@ def dist_inputs_interval(idxlist, outspikemon, spikemons):
     if distmatrix is None:
         # initialise distance matrix (actually, numpy array)
         # -1 values indicate the pair has not been evaluated yet
-        distmatrix = np.zeros((Nallin, Nallin))-1
+        nspikes = len(outspikes)
+        distmatrix = np.zeros((Nallin, Nallin, nspikes-1))-1
         for i in range(Nallin):
             distmatrix[i,i] = 0
-    calc_new_pairs(idxlist, outspikemon, spikemons)
+    calc_new_pairs(idxlist, outspikes, spikemons)
     total_dist = 0
     count = 0
     for pair in it.combinations(idxlist, 2):
@@ -146,6 +160,9 @@ def dist_inputs_interval_all(idxlist, outspikemon, *spikemons):
     return inputdists
 
 def _kreuz_pair(args):
+    """
+    Helper function called by multiprocessing pool in `dist_all_pairs`.
+    """
     idces, spiketrains = args
     a, b = idces
     t, d = sl.metrics.kreuz.distance(spiketrains[a], spiketrains[b],
@@ -234,7 +251,7 @@ def printstats(vmon, spikemon):
     for idx, corr in enumerate(xcorrs):
         print(str(idx)+"\t"+"\t".join("%.2f" % c for c in corr))
 
-def find_input_set(slopes, outspikemon, inpmons):
+def find_input_set(slopes, outspikes, inpmons):
     """
     Find set of inputs that maximises the correlation between input and slopes
 
@@ -260,19 +277,18 @@ def find_input_set(slopes, outspikemon, inpmons):
             mutation_strength=mutation_strength, genemin=genemin,
             genemax=genemax, logfile=outfile, genetype=int)
     ga.fitnessfunc = fitnessfunc
-    ga.optimise(1000, slopes, outspikemon, inpmons)
+    ga.optimise(1000, slopes, outspikes, inpmons)
     # could just return population, but returning entire class is better for
     # checking on all individuals and maybe running a few more optimisation
     # rounds
     return ga
 
-def fitnessfunc(individual, slopes, outspikemon, inpmons):
-    win = outspikemon.nspikes//2
+def fitnessfunc(individual, slopes, outspikes, inpmons):
+    win = len(outspikes)//2
     inputidces = individual.chromosome
-    input_dist = dist_inputs_interval(inputidces, outspikemon, inpmons)
+    input_dist = dist_inputs_interval(inputidces, outspikes, inpmons)
     correlation = cor_movavg(slopes, input_dist, win)
-    individual.fitness = 1-correlation[0,1]
-
+    individual.fitness = 1-correlation
 
 def cor_movavg(slopes, kreuz, win):
     masl = mlab.movavg(slopes, win)
@@ -437,10 +453,16 @@ if doplot:
 optimisers = []
 global distmatrix
 distmatrix = None
+# TODO: Dictionary of pair distances would save on memory
+# Matrix preallocates worst-case memory
+global n_pair_calcs
+n_pair_calcs = 0
+global pair_calcs_saved
+pair_calcs_saved = 0
 for idx in range(Nnrns):
-    outspikemon = spikemon[idx]
+    outspikes = spikemon[idx]
     slopes = allslopes[idx]
-    ga = find_input_set(slopes, outspikemon, inpmons)
+    ga = find_input_set(slopes, outspikes, inpmons)
     optimisers.append(ga)
     # count hits for best individual
     best_ind = ga.alltime_bestind
@@ -450,4 +472,4 @@ for idx in range(Nnrns):
             for pair in best_inputs]
     accuracy = sum(hits)/len(hits)
     print("Input search for neuron %i --- accuracy %2.2f %%" % (idx, accuracy*100))
-    break
+    break  # Run only for the first one - still testing
