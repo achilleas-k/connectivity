@@ -67,6 +67,14 @@ def dist_inputs(idxes, dist_array):
     dist_mean = dist_sum/len(pairs)
     return dist_mean
 
+def _interval(argtuple):
+    """
+    Helper function called by multiprocessing pool in `calc_new_pairs`.
+    """
+    spiketrains = (argtuple[0], argtuple[1])
+    outspikes = argtuple[2]
+    return sl.metrics.kreuz.interval(spiketrains, outspikes, mp=False)
+
 def calc_new_pairs(idxlist, outspikes, spikemons):
     """
     Returns a new distance matrix with all pairwise distances found in `idxlist`
@@ -75,7 +83,8 @@ def calc_new_pairs(idxlist, outspikes, spikemons):
     global distmatrix
     global n_pair_calcs
     global pair_calcs_saved
-    #pool = mp.Pool()
+    pairs_to_calc = []
+    mp_args = []
     for pair in it.combinations(idxlist, 2):
         one, two = pair
         if one == two: continue  # dist = 0, just carry on
@@ -88,18 +97,25 @@ def calc_new_pairs(idxlist, outspikes, spikemons):
         twog, twoi = int(two//Nin_per_group), two%Nin_per_group
         input_one = spikemons[oneg][onei]
         input_two = spikemons[twog][twoi]
-        newdist = sl.metrics.kreuz.interval([input_one, input_two], outspikes)
-        newdist = newdist[1]  # first element is `times`
+        mp_args.append((input_one, input_two, outspikes))
+        pairs_to_calc.append(pair)
+    pool = mp.Pool()
+    pool_results = pool.map(_interval, mp_args)
+    pool.close()
+    pool.join()
+    for pair, result in zip(pairs_to_calc, pool_results):
+        newdist = result[1]  # first element is `times`
         if len(newdist) != len(outspikes)-1:
             print("WARNING: Lengths don't match")
             print("Outspikes-1: %i" % (len(outspikes)-1))
             print("Distances:   %i" % (len(newdist)))
             print("This may cause, or be indicative of, bugs in the optimiser.")
+        one, two = pair
         distmatrix[one, two] = newdist
         distmatrix[two, one] = newdist
     # TODO: REMOVE THE FOLLOWING LINES
-    print("Pair calculations so far: %i" % (n_pair_calcs))
-    print("Pair calculations saved:  %i" % (pair_calcs_saved))
+    #print("Pair calculations so far: %i" % (n_pair_calcs))
+    #print("Pair calculations saved:  %i" % (pair_calcs_saved))
 
 def dist_inputs_interval(idxlist, outspikes, spikemons):
     """
@@ -266,7 +282,7 @@ def find_input_set(slopes, outspikes, inpmons):
     # On the other hand, I can have fixed length chromosome with length equal
     # to the number of inputs in total, that is just a bit string (on/off per
     # input index). This would also take care of not allowing duplicates.
-    maxpop = 100
+    maxpop = 10
     chromlength = Nin
     mutation_prob = 0.01
     mutation_strength = 10
@@ -288,7 +304,8 @@ def fitnessfunc(individual, slopes, outspikes, inpmons):
     inputidces = individual.chromosome
     input_dist = dist_inputs_interval(inputidces, outspikes, inpmons)
     correlation = cor_movavg(slopes, input_dist, win)
-    individual.fitness = 1-correlation
+    # TODO: negative correlation --- this should be fixed (maybe in the GA?)
+    individual.fitness = 1-abs(correlation)
 
 def cor_movavg(slopes, kreuz, win):
     masl = mlab.movavg(slopes, win)
@@ -310,7 +327,7 @@ Vth = 20*mV
 tau = 20*ms
 Nnrns = 4
 Ningroups = 1
-Nin_per_group = 3000
+Nin_per_group = 300
 fin = 20*Hz
 ingroup_sync = [0.5]
 sigma = 0*ms
@@ -392,6 +409,7 @@ print("Done.")
 
 print("Computing results ...")
 t = np.arange(0*second, duration, dt)
+best_corr = -1
 if spikemon.nspikes:
     vmon.insert_spikes(spikemon, Vth*2)
     print("Calculating pairwise, interval Kreuz distance for the inputs of each cell ...")
@@ -409,11 +427,13 @@ if spikemon.nspikes:
         n += 1
     print("\nCorrelations between moving averages")
     minspikes = min([len(sp) for sp in spikemon.spiketimes.itervalues()])
-    for win in np.linspace(1, minspikes/2, 3):
-        print("\nWindow length: %i" % win)
-        corrs = cor_movavg_all(allslopes, krinpdist, win)
-        for n, c in enumerate(corrs):
-            print("%i\t%.4f" % (n, c))
+    win = minspikes//2
+    #for win in np.linspace(1, minspikes/2, 3):
+    print("\nWindow length: %i" % win)
+    corrs = cor_movavg_all(allslopes, krinpdist, win)
+    best_corr = np.argmin(corrs)
+    for n, c in enumerate(corrs):
+        print("%i\t%.4f" % (n, c))
 
 if doplot:
     pyplot.ion()
@@ -459,17 +479,18 @@ global n_pair_calcs
 n_pair_calcs = 0
 global pair_calcs_saved
 pair_calcs_saved = 0
-for idx in range(Nnrns):
-    outspikes = spikemon[idx]
-    slopes = allslopes[idx]
-    ga = find_input_set(slopes, outspikes, inpmons)
-    optimisers.append(ga)
-    # count hits for best individual
-    best_ind = ga.alltime_bestind
-    best_inputs = [(int(gene/Nin_per_group), int(gene%Nin_per_group))
-                   for gene in best_ind.chromosome]
-    hits = [1 if pair in inputneurons[idx] else 0
-            for pair in best_inputs]
-    accuracy = sum(hits)/len(hits)
-    print("Input search for neuron %i --- accuracy %2.2f %%" % (idx, accuracy*100))
-    break  # Run only for the first one - still testing
+#for idx in range(Nnrns):
+idx = best_corr
+outspikes = spikemon[idx]
+slopes = allslopes[idx]
+ga = find_input_set(slopes, outspikes, inpmons)
+optimisers.append(ga)
+# count hits for best individual
+best_ind = ga.alltime_bestind
+best_inputs = [(int(gene/Nin_per_group), int(gene%Nin_per_group))
+               for gene in best_ind.chromosome]
+hits = [1 if pair in inputneurons[idx] else 0
+        for pair in best_inputs]
+accuracy = sum(hits)/len(hits)
+print("Input search for neuron %i --- accuracy %2.2f %%" % (idx, accuracy*100))
+#break  # Run only for the first one - still testing
