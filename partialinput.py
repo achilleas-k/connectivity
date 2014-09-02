@@ -99,7 +99,7 @@ def calc_new_pairs(idxlist, outspikes, spikemons):
         input_two = spikemons[twog][twoi]
         mp_args.append((input_one, input_two, outspikes))
         pairs_to_calc.append(pair)
-    pool = mp.Pool()
+    pool = mp.Pool()  # use threads instead
     pool_results = pool.map(_interval, mp_args)
     pool.close()
     pool.join()
@@ -327,7 +327,7 @@ Vth = 20*mV
 tau = 20*ms
 Nnrns = 4
 Ningroups = 1
-Nin_per_group = 300
+Nin_per_group = 50
 fin = 20*Hz
 ingroup_sync = [0.5]
 sigma = 0*ms
@@ -479,18 +479,16 @@ global n_pair_calcs
 n_pair_calcs = 0
 global pair_calcs_saved
 pair_calcs_saved = 0
-#for idx in range(Nnrns):
-idx = best_corr
-outspikes = spikemon[idx]
-slopes = allslopes[idx]
-ga = find_input_set(slopes, outspikes, inpmons)
-optimisers.append(ga)
-# count hits for best individual
-best_ind = ga.alltime_bestind
-best_inputs = [(int(gene/Nin_per_group), int(gene%Nin_per_group))
-               for gene in best_ind.chromosome]
-hits = [1 if pair in inputneurons[idx] else 0
-        for pair in best_inputs]
-accuracy = sum(hits)/len(hits)
-print("Input search for neuron %i --- accuracy %2.2f %%" % (idx, accuracy*100))
-#break  # Run only for the first one - still testing
+for idx in range(Nnrns):
+    outspikes = spikemon[idx]
+    slopes = allslopes[idx]
+    ga = find_input_set(slopes, outspikes, inpmons)
+    optimisers.append(ga)
+    # count hits for best individual
+    best_ind = ga.alltime_bestind
+    best_inputs = [(int(gene/Nin_per_group), int(gene%Nin_per_group))
+                   for gene in best_ind.chromosome]
+    hits = [1 if pair in inputneurons[idx] else 0
+            for pair in best_inputs]
+    accuracy = sum(hits)/len(hits)
+    print("Input search for neuron %i --- accuracy %2.2f %%" % (idx, accuracy*100))
