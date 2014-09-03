@@ -293,7 +293,7 @@ def find_input_set(slopes, outspikes, inpmons):
             mutation_strength=mutation_strength, genemin=genemin,
             genemax=genemax, logfile=outfile, genetype=int)
     ga.fitnessfunc = fitnessfunc
-    ga.optimise(1000, slopes, outspikes, inpmons)
+    ga.optimise(500, slopes, outspikes, inpmons)
     # could just return population, but returning entire class is better for
     # checking on all individuals and maybe running a few more optimisation
     # rounds
@@ -319,7 +319,7 @@ print("Preparing simulation ...")
 doplot = False
 network = Network()
 defaultclock.dt = dt = 0.1*ms
-duration = 1*second
+duration = 10*second
 w = 2*ms
 nkreuzsamples = 3
 Vrest = 0*mV
